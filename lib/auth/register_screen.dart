@@ -13,6 +13,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final AuthService _auth = AuthService();
 
   final _userCtrl = TextEditingController();
+  final _confirmCtrl = TextEditingController();
   final _passCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
 
@@ -33,6 +34,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   void dispose() {
     _userCtrl.dispose();
     _passCtrl.dispose();
+    _confirmCtrl.dispose();
     _emailCtrl.dispose();
     _a1Ctrl.dispose();
     _a2Ctrl.dispose();
@@ -43,7 +45,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
   Future<void> _register() async {
     final username = _userCtrl.text.trim();
     final password = _passCtrl.text;
+    final confirm = _confirmCtrl.text;
     final email = _emailCtrl.text.trim();
+    
 
     final a1 = _a1Ctrl.text.trim();
     final a2 = _a2Ctrl.text.trim();
@@ -52,6 +56,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
     if (username.isEmpty || password.isEmpty || email.isEmpty || a1.isEmpty || a2.isEmpty || a3.isEmpty) {
       setState(() => _error = 'Please fill out all fields.');
       return;
+    }
+    // Confirm password
+    if(password !=confirm){
+      setState(()=> _error ='Passwords do not match.');
+      return; // stop registration if they dont match.
+        
+      
     }
 
     // For this class project: allow only one account; overwrite if already exists
@@ -97,6 +108,21 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 ),
               ),
             ),
+
+            const SizedBox(height: 12),
+            TextField(
+              controller: _confirmCtrl,
+              obscureText: _hidePass,
+              decoration: InputDecoration(
+                labelText: 'Confirm Password',
+                border: const OutlineInputBorder(),
+                suffixIcon: IconButton(
+                icon: Icon(_hidePass ? Icons.visibility : Icons.visibility_off),
+                 onPressed: () => setState(() => _hidePass = !_hidePass),   
+                 ),
+                ),
+              ),
+            
             const SizedBox(height: 12),
 
             TextField(
