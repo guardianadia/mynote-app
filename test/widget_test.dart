@@ -10,27 +10,35 @@ import 'package:mynote/app.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  // Setup Hive for widget tests (creates a temp folder + opens the box)
+  late Directory tempDir;
+
   setUpAll(() async {
-    final dir = await Directory.systemTemp.createTemp('mynote_test_hive_');
-    Hive.init(dir.path);
+    tempDir = await Directory.systemTemp.createTemp('mynote_test_hive_');
+    Hive.init(tempDir.path);
     await Hive.openBox('notesBox');
+  });
+
+  setUp(() async {
+    await Hive.box('notesBox').clear();
   });
 
   tearDownAll(() async {
     await Hive.box('notesBox').close();
+    await Hive.close();
+
+    // optional cleanup
+    if (tempDir.existsSync()) {
+      await tempDir.delete(recursive: true);
+    }
   });
 
   testWidgets('Splash shows MyNote text', (WidgetTester tester) async {
-    // logged out state
     SharedPreferences.setMockInitialValues({'mynote_logged_in': false});
 
     await tester.pumpWidget(const MyNoteApp());
 
-    // Splash should show immediately
     expect(find.text('MyNote'), findsOneWidget);
 
-    // IMPORTANT: let the splash timer finish so no pending timers remain
     await tester.pump(const Duration(seconds: 2));
     await tester.pumpAndSettle();
   });
@@ -41,11 +49,9 @@ void main() {
 
     await tester.pumpWidget(const MyNoteApp());
 
-    // Let the 2-second splash timer finish
     await tester.pump(const Duration(seconds: 2));
     await tester.pumpAndSettle();
 
-    // Login screen UI checks (must match your LoginScreen text/buttons)
     expect(find.text('Create New Account'), findsOneWidget);
     expect(find.text('Forgot username?'), findsOneWidget);
     expect(find.text('Forgot password?'), findsOneWidget);
@@ -57,11 +63,10 @@ void main() {
 
     await tester.pumpWidget(const MyNoteApp());
 
-    // Let the 2-second splash timer finish
     await tester.pump(const Duration(seconds: 2));
     await tester.pumpAndSettle();
 
-    // Notes list screen should have floating action button (+)
     expect(find.byType(FloatingActionButton), findsOneWidget);
+    expect(find.byIcon(Icons.add), findsOneWidget);
   });
 }

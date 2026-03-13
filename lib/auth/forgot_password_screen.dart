@@ -11,7 +11,10 @@ class ForgotPasswordScreen extends StatefulWidget {
 class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   final AuthService _auth = AuthService();
 
-  List<String>? _questions;
+  // ✅ Better UX states: loading / no account / loaded
+  bool _loading = true;
+  bool _noAccount = false;
+  List<String> _questions = const [];
 
   final _a1Ctrl = TextEditingController();
   final _a2Ctrl = TextEditingController();
@@ -38,13 +41,38 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   }
 
   Future<void> _loadQuestions() async {
+    setState(() {
+      _loading = true;
+      _noAccount = false;
+      _error = null;
+      _msg = null;
+    });
+
     final qs = await _auth.getSecurityQuestions();
-    setState(() => _questions = qs);
+
+    if (!mounted) return;
+
+    if (qs == null || qs.length < 3) {
+      setState(() {
+        _loading = false;
+        _noAccount = true;
+        _questions = const [];
+      });
+      return;
+    }
+
+    setState(() {
+      _loading = false;
+      _noAccount = false;
+      _questions = qs;
+    });
   }
 
   Future<void> _reset() async {
-    if (_questions == null) {
-      setState(() => _error = 'No account exists yet. Please create an account first.');
+    if (_noAccount) {
+      setState(
+        () => _error = 'No account exists yet. Please create an account first.',
+      );
       return;
     }
 
@@ -77,28 +105,45 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     });
   }
 
+  void _backToLogin() {
+    // ✅ Go back to Login (pop this screen)
+    Navigator.pop(context);
+  }
+
   @override
   Widget build(BuildContext context) {
-    final qs = _questions;
-
     return Scaffold(
       appBar: AppBar(title: const Text('Forgot Password')),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            if (qs == null) ...[
+            if (_loading) ...[
               const Text('Loading security questions...'),
               const SizedBox(height: 12),
+              const CircularProgressIndicator(),
+            ] else if (_noAccount) ...[
+              const Text(
+                'No account exists yet.\nPlease create an account first.',
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: _backToLogin,
+                  child: const Text('Back to Login'),
+                ),
+              ),
             ] else ...[
               const Text('Answer all 3 questions to reset your password.'),
               const SizedBox(height: 12),
 
-              _qBlock(qs[0], _a1Ctrl),
+              _qBlock(_questions[0], _a1Ctrl),
               const SizedBox(height: 10),
-              _qBlock(qs[1], _a2Ctrl),
+              _qBlock(_questions[1], _a2Ctrl),
               const SizedBox(height: 10),
-              _qBlock(qs[2], _a3Ctrl),
+              _qBlock(_questions[2], _a3Ctrl),
               const SizedBox(height: 12),
 
               TextField(
@@ -108,7 +153,9 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                   labelText: 'New Password',
                   border: const OutlineInputBorder(),
                   suffixIcon: IconButton(
-                    icon: Icon(_hidePass ? Icons.visibility : Icons.visibility_off),
+                    icon: Icon(
+                      _hidePass ? Icons.visibility : Icons.visibility_off,
+                    ),
                     onPressed: () => setState(() => _hidePass = !_hidePass),
                   ),
                 ),
@@ -117,12 +164,29 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
               SizedBox(
                 width: double.infinity,
-                child: ElevatedButton(onPressed: _reset, child: const Text('Reset Password')),
+                child: ElevatedButton(
+                  onPressed: _reset,
+                  child: const Text('Reset Password'),
+                ),
               ),
               const SizedBox(height: 12),
 
-              if (_error != null) Text(_error!, style: const TextStyle(color: Colors.red)),
-              if (_msg != null) Text(_msg!, style: const TextStyle(fontWeight: FontWeight.w700)),
+              if (_error != null)
+                Text(_error!, style: const TextStyle(color: Colors.red)),
+              if (_msg != null) ...[
+                Text(
+                  _msg!,
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton(
+                    onPressed: _backToLogin,
+                    child: const Text('Back to Login'),
+                  ),
+                ),
+              ],
             ],
           ],
         ),
@@ -138,7 +202,10 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
         const SizedBox(height: 6),
         TextField(
           controller: ctrl,
-          decoration: const InputDecoration(border: OutlineInputBorder(), hintText: 'Answer'),
+          decoration: const InputDecoration(
+            border: OutlineInputBorder(),
+            hintText: 'Answer',
+          ),
         ),
       ],
     );
