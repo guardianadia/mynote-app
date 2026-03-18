@@ -7,7 +7,7 @@ import 'edit_note_screen.dart';
 
 import '../services/auth_service.dart';
 import '../auth/login_screen.dart';
-
+import 'account_screen.dart';
 class ScrollUpIntent extends Intent {
   const ScrollUpIntent();
 }
@@ -474,6 +474,15 @@ class _NotesListScreenState extends State<NotesListScreen> {
             appBar: AppBar(
               title: const Text('MyNote'),
               actions: [
+                IconButton(
+                  icon: const Icon(Icons.person),
+                  onPressed:() {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder:(_) => AccountScreen())
+                    );
+                  },
+                ),
                 IconButton(
                   icon: const Icon(Icons.logout),
                   tooltip: 'Logout',

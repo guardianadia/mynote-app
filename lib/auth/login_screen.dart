@@ -58,7 +58,7 @@ class _LoginScreenState extends State<LoginScreen> {
         child: Column(
           children: [
             const SizedBox(height: 12),
-            const Text('MyNote Login', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700)),
+            const Text('MyNote', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700)),
             const SizedBox(height: 16),
 
             TextField(

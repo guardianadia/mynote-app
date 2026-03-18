@@ -115,4 +115,23 @@ class AuthService {
     final qs = (user['securityQuestions'] as List?)?.cast<String>();
     return qs;
   }
+  Future<Map<String,dynamic>?> getUser() async{
+    return await _readUser();
+  }
+  Future<void> updateRecoveryEmail(String email) async {
+    final user = await _readUser();
+    if (user==null) return;
+
+    user['recoveryEmail'] = email.toLowerCase().trim();
+    await _writeUser(user);
+  }
+  Future<void> updatePassword(String newPassword) async {
+    final user = await _readUser();
+    if (user==null) return;
+
+    user['password'] = newPassword;
+    await _writeUser(user);
+  }
+
+  
 }
