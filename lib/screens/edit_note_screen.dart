@@ -15,14 +15,12 @@ class _EditNoteScreenState extends State<EditNoteScreen> {
   late final TextEditingController _titleController;
   late final TextEditingController _contentController;
 
-  //  NEW: Folder + Tags controllers
   final TextEditingController _folderCtrl = TextEditingController();
   final TextEditingController _tagsCtrl = TextEditingController();
 
   final FocusNode _titleFocus = FocusNode();
   final FocusNode _contentFocus = FocusNode();
 
-  //  Category options
   static const List<String> _categories = [
     'General',
     'Homework',
@@ -38,15 +36,15 @@ class _EditNoteScreenState extends State<EditNoteScreen> {
   void initState() {
     super.initState();
 
-    _titleController = TextEditingController(text: widget.existing?.title ?? '');
-    _contentController = TextEditingController(text: widget.existing?.content ?? '');
+    _titleController = TextEditingController(
+      text: widget.existing?.title ?? '',
+    );
+    _contentController = TextEditingController(
+      text: widget.existing?.content ?? '',
+    );
 
     _selectedCategory = widget.existing?.category ?? 'General';
-
-    //  Folder default
-    _folderCtrl.text = (widget.existing?.folder ?? 'General');
-
-    //  Tags default
+    _folderCtrl.text = widget.existing?.folder ?? 'General';
     _tagsCtrl.text = (widget.existing?.tags ?? []).join(', ');
   }
 
@@ -61,7 +59,6 @@ class _EditNoteScreenState extends State<EditNoteScreen> {
     super.dispose();
   }
 
-  // parse tags from comma-separated input
   List<String> _parseTags(String raw) {
     return raw
         .split(',')
@@ -84,10 +81,18 @@ class _EditNoteScreenState extends State<EditNoteScreen> {
 
   void _save() {
     final title = _titleController.text.trim();
-    final content = _contentController.text;
-
-    final folder = _folderCtrl.text.trim().isEmpty ? 'General' : _folderCtrl.text.trim();
+    final content = _contentController.text.trim();
+    final folder = _folderCtrl.text.trim().isEmpty
+        ? 'General'
+        : _folderCtrl.text.trim();
     final tags = _parseTags(_tagsCtrl.text);
+
+    if (title.isEmpty && content.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter a title or note content.')),
+      );
+      return;
+    }
 
     final now = DateTime.now();
 
@@ -109,7 +114,7 @@ class _EditNoteScreenState extends State<EditNoteScreen> {
     return InputDecoration(
       labelText: label,
       filled: true,
-      fillColor: Colors.white.withValues(alpha: 0.9),
+      fillColor: Colors.white.withAlpha(230),
       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
@@ -122,7 +127,6 @@ class _EditNoteScreenState extends State<EditNoteScreen> {
     );
   }
 
-  /// Handles both normal Enter and Numpad Enter
   bool _isEnterKey(KeyEvent event) {
     final lk = event.logicalKey;
     final pk = event.physicalKey;
@@ -134,7 +138,6 @@ class _EditNoteScreenState extends State<EditNoteScreen> {
       return true;
     }
 
-    // Emulator sometimes reports it differently
     final label = lk.keyLabel.toLowerCase();
     if (label == 'enter' || label == 'return') {
       return true;
@@ -158,8 +161,6 @@ class _EditNoteScreenState extends State<EditNoteScreen> {
           ),
         ],
       ),
-
-      // iPad polish: limit max width
       body: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 700),
@@ -167,7 +168,6 @@ class _EditNoteScreenState extends State<EditNoteScreen> {
             padding: const EdgeInsets.all(16),
             child: Column(
               children: [
-                /// TITLE
                 TextField(
                   focusNode: _titleFocus,
                   controller: _titleController,
@@ -175,24 +175,25 @@ class _EditNoteScreenState extends State<EditNoteScreen> {
                   textInputAction: TextInputAction.next,
                   onSubmitted: (_) => _contentFocus.requestFocus(),
                 ),
-
                 const SizedBox(height: 12),
-
-                ///  FOLDER / CLASS
                 TextField(
                   controller: _folderCtrl,
-                  decoration: _fieldDecoration('Folder (ex: CSIT 112 / Chores)'),
+                  decoration: _fieldDecoration(
+                    'Folder (ex: CSIT 112 / Chores)',
+                  ),
                   textInputAction: TextInputAction.next,
                 ),
-
                 const SizedBox(height: 12),
-
-                /// CATEGORY (FIXED: initialValue instead of value)
                 DropdownButtonFormField<String>(
-                  initialValue: _selectedCategory, // ✅ FIX
+                  initialValue: _selectedCategory,
                   decoration: _fieldDecoration('Category'),
                   items: _categories
-                      .map((cat) => DropdownMenuItem(value: cat, child: Text(cat)))
+                      .map(
+                        (cat) => DropdownMenuItem<String>(
+                          value: cat,
+                          child: Text(cat),
+                        ),
+                      )
                       .toList(),
                   onChanged: (value) {
                     setState(() {
@@ -200,19 +201,15 @@ class _EditNoteScreenState extends State<EditNoteScreen> {
                     });
                   },
                 ),
-
                 const SizedBox(height: 12),
-
-                /// TAGS
                 TextField(
                   controller: _tagsCtrl,
-                  decoration: _fieldDecoration('Tags (comma-separated: exam, week3, project)'),
+                  decoration: _fieldDecoration(
+                    'Tags (comma-separated: exam, week3, project)',
+                  ),
                   textInputAction: TextInputAction.next,
                 ),
-
                 const SizedBox(height: 12),
-
-                /// NOTE FIELD
                 Expanded(
                   child: Focus(
                     onKeyEvent: (node, event) {
@@ -235,11 +232,8 @@ class _EditNoteScreenState extends State<EditNoteScreen> {
                       textInputAction: TextInputAction.newline,
                       maxLines: null,
                       expands: true,
-
-                      // typing starts at TOP
                       textAlignVertical: TextAlignVertical.top,
                       textAlign: TextAlign.start,
-
                       scrollPadding: const EdgeInsets.all(20),
                     ),
                   ),

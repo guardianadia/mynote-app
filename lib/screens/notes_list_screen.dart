@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:hive/hive.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/note.dart';
 import 'edit_note_screen.dart';
-
 import '../services/auth_service.dart';
 import '../auth/login_screen.dart';
 
@@ -41,15 +40,15 @@ Color _folderColor(String folder) {
   }
 
   const palette = <Color>[
-    Color(0xFF2563EB), // blue
-    Color(0xFF7C3AED), // purple
-    Color(0xFF16A34A), // green
-    Color(0xFFF59E0B), // amber
-    Color(0xFFEC4899), // pink
-    Color(0xFF0EA5E9), // sky
-    Color(0xFFEA580C), // orange
-    Color(0xFF059669), // emerald
-    Color(0xFF6B7280), // gray
+    Color(0xFF2563EB),
+    Color(0xFF7C3AED),
+    Color(0xFF16A34A),
+    Color(0xFFF59E0B),
+    Color(0xFFEC4899),
+    Color(0xFF0EA5E9),
+    Color(0xFFEA580C),
+    Color(0xFF059669),
+    Color(0xFF6B7280),
   ];
 
   return palette[hash % palette.length];
@@ -80,23 +79,19 @@ class NotesListScreen extends StatefulWidget {
 }
 
 class _NotesListScreenState extends State<NotesListScreen> {
-  static const String _boxName = 'notesBox';
-
   final List<Note> _notes = [];
   final ScrollController _scroll = ScrollController();
   final FocusNode _screenFocus = FocusNode();
-
   final AuthService _auth = AuthService();
+  final _client = Supabase.instance.client;
 
-  // Folder filter
   String _filterFolder = 'All';
-
-  Box get _box => Hive.box(_boxName);
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _loadFromHive();
+    _loadNotesFromSupabase();
   }
 
   @override
@@ -106,31 +101,58 @@ class _NotesListScreenState extends State<NotesListScreen> {
     super.dispose();
   }
 
-  void _loadFromHive() {
-    final List<Note> loaded = [];
-
-    for (final key in _box.keys) {
-      final raw = _box.get(key);
-      if (raw is Map) {
-        loaded.add(Note.fromMap(Map<dynamic, dynamic>.from(raw)));
+  Future<void> _loadNotesFromSupabase() async {
+    try {
+      final user = _client.auth.currentUser;
+      if (user == null) {
+        setState(() {
+          _notes.clear();
+          _isLoading = false;
+        });
+        return;
       }
+
+      final data = await _client
+          .from('notes')
+          .select()
+          .eq('user_id', user.id)
+          .order('updated_at', ascending: false);
+
+      final loaded = (data as List)
+          .map((item) => Note.fromMap(Map<String, dynamic>.from(item)))
+          .toList();
+
+      setState(() {
+        _notes
+          ..clear()
+          ..addAll(loaded);
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() => _isLoading = false);
+      debugPrint('Error loading notes: $e');
     }
+  }
 
-    loaded.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+  Future<void> _saveNoteToSupabase(Note note) async {
+    final user = _client.auth.currentUser;
+    if (user == null) return;
 
-    setState(() {
-      _notes
-        ..clear()
-        ..addAll(loaded);
+    await _client.from('notes').upsert({
+      'id': note.id,
+      'user_id': user.id,
+      'title': note.title,
+      'content': note.content,
+      'category': note.category,
+      'folder': note.folder,
+      'tags': note.tags,
+      'created_at': note.createdAt.toIso8601String(),
+      'updated_at': note.updatedAt.toIso8601String(),
     });
   }
 
-  Future<void> _saveNoteToHive(Note note) async {
-    await _box.put(note.id, note.toMap());
-  }
-
-  Future<void> _deleteNoteFromHive(String id) async {
-    await _box.delete(id);
+  Future<void> _deleteNoteFromSupabase(String id) async {
+    await _client.from('notes').delete().eq('id', id);
   }
 
   Future<void> _addNewNote() async {
@@ -140,8 +162,8 @@ class _NotesListScreenState extends State<NotesListScreen> {
     );
 
     if (created != null) {
-      await _saveNoteToHive(created);
-      setState(() => _notes.insert(0, created));
+      await _saveNoteToSupabase(created);
+      await _loadNotesFromSupabase();
 
       if (_scroll.hasClients) {
         _scroll.animateTo(
@@ -160,18 +182,13 @@ class _NotesListScreenState extends State<NotesListScreen> {
     );
 
     if (updated != null) {
-      await _saveNoteToHive(updated);
-
-      setState(() {
-        final index = _notes.indexWhere((n) => n.id == updated.id);
-        if (index != -1) _notes[index] = updated;
-        _notes.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
-      });
+      await _saveNoteToSupabase(updated);
+      await _loadNotesFromSupabase();
     }
   }
 
   Future<void> _deleteNote(String id) async {
-    await _deleteNoteFromHive(id);
+    await _deleteNoteFromSupabase(id);
     setState(() => _notes.removeWhere((n) => n.id == id));
   }
 
@@ -190,7 +207,6 @@ class _NotesListScreenState extends State<NotesListScreen> {
     );
   }
 
-  // LOGOUT
   Future<void> _logout() async {
     await _auth.logout();
     if (!mounted) return;
@@ -202,7 +218,6 @@ class _NotesListScreenState extends State<NotesListScreen> {
     );
   }
 
-  // OPTIONAL: RESET ACCOUNT (for demo)
   Future<void> _resetAccount() async {
     await _auth.clearAccount();
     if (!mounted) return;
@@ -286,9 +301,9 @@ class _NotesListScreenState extends State<NotesListScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: c.withValues(alpha: 0.15),
+        color: c.withAlpha(38),
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: c.withValues(alpha: 0.35)),
+        border: Border.all(color: c.withAlpha(90)),
       ),
       child: Text(
         category,
@@ -308,9 +323,9 @@ class _NotesListScreenState extends State<NotesListScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: c.withValues(alpha: 0.12),
+        color: c.withAlpha(30),
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: c.withValues(alpha: 0.25)),
+        border: Border.all(color: c.withAlpha(64)),
       ),
       child: Text(
         '$emoji $folder',
@@ -490,8 +505,6 @@ class _NotesListScreenState extends State<NotesListScreen> {
               onPressed: _addNewNote,
               child: const Icon(Icons.add),
             ),
-
-            // iPad polish: limit max width
             body: Center(
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 700),
@@ -499,14 +512,16 @@ class _NotesListScreenState extends State<NotesListScreen> {
                   children: [
                     _filterBar(),
                     Expanded(
-                      child: notes.isEmpty
-                          ? const Center(
-                              child: Text('No notes yet. Tap + to add one.'),
-                            )
-                          : ListView(
-                              controller: _scroll,
-                              children: listChildren,
-                            ),
+                      child: _isLoading
+                          ? const Center(child: CircularProgressIndicator())
+                          : notes.isEmpty
+                              ? const Center(
+                                  child: Text('No notes yet. Tap + to add one.'),
+                                )
+                              : ListView(
+                                  controller: _scroll,
+                                  children: listChildren,
+                                ),
                     ),
                   ],
                 ),

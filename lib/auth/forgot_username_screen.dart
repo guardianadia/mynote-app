@@ -12,6 +12,7 @@ class _ForgotUsernameScreenState extends State<ForgotUsernameScreen> {
   final AuthService _auth = AuthService();
   final _emailCtrl = TextEditingController();
 
+  bool _isLoading = false;
   String? _result;
   String? _error;
 
@@ -23,24 +24,49 @@ class _ForgotUsernameScreenState extends State<ForgotUsernameScreen> {
 
   Future<void> _recover() async {
     final email = _emailCtrl.text.trim();
-    if (email.isEmpty) {
-      setState(() => _error = 'Enter your recovery email.');
-      return;
-    }
 
-    final username = await _auth.recoverUsernameByEmail(email);
-    if (username == null || username.isEmpty) {
+    if (email.isEmpty) {
       setState(() {
+        _error = 'Enter your recovery email.';
         _result = null;
-        _error = 'No account found with that email.';
       });
       return;
     }
 
     setState(() {
+      _isLoading = true;
       _error = null;
-      _result = 'Your username is: $username';
+      _result = null;
     });
+
+    try {
+      final username = await _auth.recoverUsernameByEmail(email);
+
+      if (username == null || username.isEmpty) {
+        setState(() {
+          _error = 'No account found with that email.';
+        });
+        return;
+      }
+
+      setState(() {
+        _result = 'Your username is: $username';
+      });
+    } catch (e) {
+      setState(() {
+        _error = 'Error recovering username: $e';
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  void _backToLogin() {
+    Navigator.pop(context);
   }
 
   @override
@@ -51,8 +77,12 @@ class _ForgotUsernameScreenState extends State<ForgotUsernameScreen> {
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            const Text('Enter your recovery email to see your username.'),
+            const Text(
+              'Enter your recovery email to find your username.',
+              textAlign: TextAlign.center,
+            ),
             const SizedBox(height: 12),
+
             TextField(
               controller: _emailCtrl,
               keyboardType: TextInputType.emailAddress,
@@ -61,14 +91,42 @@ class _ForgotUsernameScreenState extends State<ForgotUsernameScreen> {
                 border: OutlineInputBorder(),
               ),
             ),
+
             const SizedBox(height: 12),
+
             SizedBox(
               width: double.infinity,
-              child: ElevatedButton(onPressed: _recover, child: const Text('Recover Username')),
+              child: ElevatedButton(
+                onPressed: _isLoading ? null : _recover,
+                child: _isLoading
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Text('Recover Username'),
+              ),
             ),
+
             const SizedBox(height: 12),
-            if (_error != null) Text(_error!, style: const TextStyle(color: Colors.red)),
-            if (_result != null) Text(_result!, style: const TextStyle(fontWeight: FontWeight.w700)),
+
+            if (_error != null)
+              Text(_error!, style: const TextStyle(color: Colors.red)),
+
+            if (_result != null) ...[
+              Text(
+                _result!,
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton(
+                  onPressed: _backToLogin,
+                  child: const Text('Back to Login'),
+                ),
+              ),
+            ],
           ],
         ),
       ),
