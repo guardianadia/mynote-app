@@ -1,91 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-
 import '../models/note.dart';
 import 'edit_note_screen.dart';
-import '../services/auth_service.dart';
-import '../auth/login_screen.dart';
-
-class ScrollUpIntent extends Intent {
-  const ScrollUpIntent();
-}
-
-class ScrollDownIntent extends Intent {
-  const ScrollDownIntent();
-}
-
-class PageUpIntent extends Intent {
-  const PageUpIntent();
-}
-
-class PageDownIntent extends Intent {
-  const PageDownIntent();
-}
-
-String _folderEmoji(String folder) {
-  final f = folder.toLowerCase();
-
-  if (f.contains('csit') || f.contains('course') || f.contains('class')) {
-    return '🎓';
-  }
-
-  if (f.contains('math') || f.contains('amat')) {
-    return '📐';
-  }
-
-  if (f.contains('homework')) {
-    return '📚';
-  }
-
-  if (f.contains('chore') || f.contains('home')) {
-    return '🏠';
-  }
-
-  if (f.contains('work') || f.contains('job')) {
-    return '💼';
-  }
-
-  return '📁';
-}
-
-Color _folderColor(String folder) {
-  int hash = 0;
-  for (final codeUnit in folder.codeUnits) {
-    hash = (hash * 31 + codeUnit) & 0x7fffffff;
-  }
-
-  const palette = <Color>[
-    Color(0xFF2563EB),
-    Color(0xFF7C3AED),
-    Color(0xFF16A34A),
-    Color(0xFFF59E0B),
-    Color(0xFFEC4899),
-    Color(0xFF0EA5E9),
-    Color(0xFFEA580C),
-    Color(0xFF059669),
-    Color(0xFF6B7280),
-  ];
-
-  return palette[hash % palette.length];
-}
-
-Color _categoryColor(String category) {
-  switch (category) {
-    case 'Homework':
-      return const Color(0xFF2563EB);
-    case 'Courses':
-      return const Color(0xFF7C3AED);
-    case 'Chores':
-      return const Color(0xFF16A34A);
-    case 'Work':
-      return const Color(0xFFF59E0B);
-    case 'Personal':
-      return const Color(0xFFEC4899);
-    default:
-      return const Color(0xFF6B7280);
-  }
-}
 
 class NotesListScreen extends StatefulWidget {
   const NotesListScreen({super.key});
@@ -95,449 +11,279 @@ class NotesListScreen extends StatefulWidget {
 }
 
 class _NotesListScreenState extends State<NotesListScreen> {
-  final List<Note> _notes = [];
-  final ScrollController _scroll = ScrollController();
-  final FocusNode _screenFocus = FocusNode();
-  final AuthService _auth = AuthService();
   final _client = Supabase.instance.client;
 
-  String _filterFolder = 'All';
-  bool _isLoading = true;
+  List<Note> _notes = [];
+  List<Note> _filteredNotes = [];
+
+  String _searchQuery = '';
+  String _sortType = 'date';
 
   @override
   void initState() {
     super.initState();
-    _loadNotesFromSupabase();
+    _loadNotes();
   }
 
-  @override
-  void dispose() {
-    _scroll.dispose();
-    _screenFocus.dispose();
-    super.dispose();
-  }
-
-  Future<void> _loadNotesFromSupabase() async {
-    try {
-      final user = _client.auth.currentUser;
-      if (user == null) {
-        setState(() {
-          _notes.clear();
-          _isLoading = false;
-        });
-        return;
-      }
-
-      final data = await _client
-          .from('notes')
-          .select()
-          .eq('user_id', user.id)
-          .order('updated_at', ascending: false);
-
-      final loaded = (data as List)
-          .map((item) => Note.fromMap(Map<String, dynamic>.from(item)))
-          .toList();
-
-      setState(() {
-        _notes
-          ..clear()
-          ..addAll(loaded);
-        _isLoading = false;
-      });
-    } catch (e) {
-      setState(() => _isLoading = false);
-      debugPrint('Error loading notes: $e');
-    }
-  }
-
-  Future<void> _saveNoteToSupabase(Note note) async {
+  // =========================
+  // LOAD NOTES
+  // =========================
+  Future<void> _loadNotes() async {
     final user = _client.auth.currentUser;
     if (user == null) return;
 
-    await _client.from('notes').upsert({
-      'id': note.id,
-      'user_id': user.id,
-      'title': note.title,
-      'content': note.content,
-      'category': note.category,
-      'folder': note.folder,
-      'tags': note.tags,
-      'created_at': note.createdAt.toIso8601String(),
-      'updated_at': note.updatedAt.toIso8601String(),
+    final data = await _client
+        .from('notes')
+        .select()
+        .eq('user_id', user.id);
+
+    _notes = (data as List).map((e) => Note.fromMap(e)).toList();
+
+    _applyFilters();
+  }
+
+  // =========================
+  // FILTER + SORT
+  // =========================
+  void _applyFilters() {
+    List<Note> temp = _notes.where((note) {
+      return note.title.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+          note.content.toLowerCase().contains(_searchQuery.toLowerCase());
+    }).toList();
+
+    // 📌 PIN FIRST
+    temp.sort((a, b) {
+      if (a.isPinned == b.isPinned) return 0;
+      return a.isPinned ? -1 : 1;
+    });
+
+    // 📊 SORT
+    if (_sortType == 'title') {
+      temp.sort((a, b) => a.title.compareTo(b.title));
+    } else {
+      temp.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+    }
+
+    setState(() {
+      _filteredNotes = temp;
     });
   }
 
-  Future<void> _deleteNoteFromSupabase(String id) async {
-    await _client.from('notes').delete().eq('id', id);
+  // =========================
+  // PIN / FAVORITE
+  // =========================
+  Future<void> _togglePin(Note note) async {
+    await _client
+        .from('notes')
+        .update({'is_pinned': !note.isPinned}).eq('id', note.id);
+
+    _loadNotes();
   }
 
-  Future<void> _addNewNote() async {
-    final created = await Navigator.push<Note>(
-      context,
-      MaterialPageRoute(builder: (_) => const EditNoteScreen()),
-    );
+  Future<void> _toggleFavorite(Note note) async {
+    await _client
+        .from('notes')
+        .update({'is_favorite': !note.isFavorite}).eq('id', note.id);
 
-    if (created != null) {
-      await _saveNoteToSupabase(created);
-      await _loadNotesFromSupabase();
-
-      if (_scroll.hasClients) {
-        _scroll.animateTo(
-          0,
-          duration: const Duration(milliseconds: 200),
-          curve: Curves.easeOut,
-        );
-      }
-    }
+    _loadNotes();
   }
 
-  Future<void> _editExistingNote(Note note) async {
-    final updated = await Navigator.push<Note>(
-      context,
-      MaterialPageRoute(builder: (_) => EditNoteScreen(existing: note)),
-    );
-
-    if (updated != null) {
-      await _saveNoteToSupabase(updated);
-      await _loadNotesFromSupabase();
-    }
-  }
-
+  // =========================
+  // DELETE
+  // =========================
   Future<void> _deleteNote(String id) async {
-    await _deleteNoteFromSupabase(id);
-    setState(() => _notes.removeWhere((n) => n.id == id));
+    await _client.from('notes').delete().eq('id', id);
+    _loadNotes();
   }
 
-  void _scrollBy(double delta) {
-    if (!_scroll.hasClients) return;
-
-    final target = (_scroll.offset + delta).clamp(
-      0.0,
-      _scroll.position.maxScrollExtent,
-    );
-
-    _scroll.animateTo(
-      target,
-      duration: const Duration(milliseconds: 120),
-      curve: Curves.easeOut,
-    );
-  }
-
-  Future<void> _logout() async {
-    await _auth.logout();
-    if (!mounted) return;
-
-    Navigator.pushAndRemoveUntil(
+  // =========================
+  // EDIT
+  // =========================
+  void _editNote(Note note) async {
+    final result = await Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => const LoginScreen()),
-      (route) => false,
+      MaterialPageRoute(
+        builder: (_) => EditNoteScreen(note: note),
+      ),
     );
-  }
 
-  Future<void> _resetAccount() async {
-    await _auth.clearAccount();
-    if (!mounted) return;
+    if (result != null && result is Note) {
+      await _client.from('notes').update({
+        'title': result.title,
+        'content': result.content,
+        'folder': result.folder,
+        'category': result.category,
+        'tags': result.tags,
+        'updated_at': result.updatedAt.toIso8601String(),
+      }).eq('id', result.id);
 
-    Navigator.pushAndRemoveUntil(
-      context,
-      MaterialPageRoute(builder: (_) => const LoginScreen()),
-      (route) => false,
-    );
-  }
-
-  String _fmtDate(DateTime dt) {
-    String two(int n) => n.toString().padLeft(2, '0');
-
-    final mm = two(dt.month);
-    final dd = two(dt.day);
-    final yyyy = dt.year;
-
-    int h = dt.hour;
-    final ampm = h >= 12 ? 'PM' : 'AM';
-    h = h % 12;
-    if (h == 0) h = 12;
-
-    final min = two(dt.minute);
-    return '$mm/$dd/$yyyy $h:$min $ampm';
-  }
-
-  List<String> get _allFolders {
-    final set = <String>{};
-    for (final n in _notes) {
-      final f = n.folder.trim().isEmpty ? 'General' : n.folder.trim();
-      set.add(f);
+      _loadNotes();
     }
-    final list = set.toList()
-      ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
-    if (!list.contains('General')) list.insert(0, 'General');
-    return list;
   }
 
-  List<Note> get _filteredNotes {
-    if (_filterFolder == 'All') return List<Note>.from(_notes);
-    return _notes.where((n) => n.folder == _filterFolder).toList();
-  }
+  // =========================
+  // REORDER
+  // =========================
+  void _reorder(int oldIndex, int newIndex) async {
+    if (newIndex > oldIndex) newIndex--;
 
-  Map<String, List<Note>> _groupByFolder(List<Note> notes) {
-    final Map<String, List<Note>> groups = {};
-    for (final n in notes) {
-      groups.putIfAbsent(n.folder, () => []);
-      groups[n.folder]!.add(n);
+    final item = _filteredNotes.removeAt(oldIndex);
+    _filteredNotes.insert(newIndex, item);
+
+    setState(() {});
+
+    for (int i = 0; i < _filteredNotes.length; i++) {
+      await _client
+          .from('notes')
+          .update({'position': i}).eq('id', _filteredNotes[i].id);
     }
-    for (final k in groups.keys) {
-      groups[k]!.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
-    }
-    return groups;
   }
 
-  Widget _filterBar() {
-    final folders = ['All', ..._allFolders];
-
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.fromLTRB(12, 10, 12, 6),
-      child: Row(
-        children: [
-          for (final f in folders) ...[
-            ChoiceChip(
-              label: Text(f),
-              selected: _filterFolder == f,
-              onSelected: (_) => setState(() => _filterFolder = f),
-            ),
-            const SizedBox(width: 8),
-          ],
-        ],
-      ),
-    );
+  // =========================
+  // DATE FORMAT
+  // =========================
+  String formatDate(DateTime d) {
+    return "${d.month}/${d.day}/${d.year}";
   }
 
-  Widget _categoryBadge(String category) {
-    final c = _categoryColor(category);
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: c.withAlpha(38),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: c.withAlpha(90)),
-      ),
-      child: Text(
-        category,
-        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: c),
-      ),
-    );
-  }
-
-  Widget _folderBadge(String folder) {
-    final c = _folderColor(folder);
-    final emoji = _folderEmoji(folder);
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: c.withAlpha(30),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: c.withAlpha(64)),
-      ),
-      child: Text(
-        '$emoji $folder',
-        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: c),
-      ),
-    );
-  }
-
-  Widget _tagsRow(List<String> tags) {
-    if (tags.isEmpty) return const SizedBox.shrink();
-
-    return Wrap(
-      spacing: 6,
-      runSpacing: -6,
-      children: tags.take(6).map((t) {
-        return Chip(
-          label: Text(t, style: const TextStyle(fontSize: 12)),
-          materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-          visualDensity: VisualDensity.compact,
-        );
-      }).toList(),
-    );
-  }
-
-  Widget _folderHeader(String folder, int count) {
-    final emoji = _folderEmoji(folder);
-    final c = _folderColor(folder);
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 14, 12, 8),
-      child: Row(
-        children: [
-          Text(
-            '$emoji $folder',
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
-          ),
-          const SizedBox(width: 8),
-          Text('($count)'),
-          const Spacer(),
-          Container(
-            width: 10,
-            height: 10,
-            decoration: BoxDecoration(color: c, shape: BoxShape.circle),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _noteCard(Note note) {
-    return Dismissible(
-      key: ValueKey(note.id),
-      background: Container(
-        alignment: Alignment.centerRight,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        color: Colors.red,
-        child: const Icon(Icons.delete, color: Colors.white),
-      ),
-      direction: DismissDirection.endToStart,
-      onDismissed: (_) => _deleteNote(note.id),
-      child: Card(
-        child: ListTile(
-          title: Text(
-            note.title.isEmpty ? '(Untitled)' : note.title,
-            style: const TextStyle(
-              color: Colors.black,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          subtitle: Padding(
-            padding: const EdgeInsets.only(top: 6),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    _categoryBadge(note.category),
-                    const SizedBox(width: 8),
-                    _folderBadge(note.folder),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  note.content,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: Colors.black87),
-                ),
-                const SizedBox(height: 6),
-                _tagsRow(note.tags),
-                const SizedBox(height: 6),
-                Text(
-                  'Created: ${_fmtDate(note.createdAt)}  •  Updated: ${_fmtDate(note.updatedAt)}',
-                  style: const TextStyle(fontSize: 12),
-                ),
-              ],
-            ),
-          ),
-          onTap: () => _editExistingNote(note),
-        ),
-      ),
-    );
-  }
-
+  // =========================
+  // UI
+  // =========================
   @override
   Widget build(BuildContext context) {
-    final notes = _filteredNotes;
-    final groups = _groupByFolder(notes);
+    return Scaffold(
+      backgroundColor: const Color(0xFFF2EAFE),
 
-    final folderOrder = _filterFolder == 'All'
-        ? _allFolders
-        : <String>[_filterFolder];
+      appBar: AppBar(
+        title: const Text('My Notes'),
+        backgroundColor: const Color(0xFF5B2C83),
 
-    final List<Widget> listChildren = [];
+        actions: [
+          PopupMenuButton<String>(
+            onSelected: (value) {
+              _sortType = value;
+              _applyFilters();
+            },
+            itemBuilder: (_) => const [
+              PopupMenuItem(value: 'date', child: Text('Sort by Date')),
+              PopupMenuItem(value: 'title', child: Text('Sort by Title')),
+            ],
+          ),
+        ],
+      ),
 
-    for (final folder in folderOrder) {
-      final group = groups[folder];
-      if (group == null || group.isEmpty) continue;
-
-      listChildren.add(_folderHeader(folder, group.length));
-
-      for (final n in group) {
-        listChildren.add(
+      body: Column(
+        children: [
+          // 🔍 SEARCH
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            child: _noteCard(n),
-          ),
-        );
-      }
-    }
-
-    return Shortcuts(
-      shortcuts: const <ShortcutActivator, Intent>{
-        SingleActivator(LogicalKeyboardKey.arrowUp): ScrollUpIntent(),
-        SingleActivator(LogicalKeyboardKey.arrowDown): ScrollDownIntent(),
-        SingleActivator(LogicalKeyboardKey.arrowLeft): PageUpIntent(),
-        SingleActivator(LogicalKeyboardKey.arrowRight): PageDownIntent(),
-      },
-      child: Actions(
-        actions: <Type, Action<Intent>>{
-          ScrollUpIntent: CallbackAction<ScrollUpIntent>(
-            onInvoke: (_) => _scrollBy(-80),
-          ),
-          ScrollDownIntent: CallbackAction<ScrollDownIntent>(
-            onInvoke: (_) => _scrollBy(80),
-          ),
-          PageUpIntent: CallbackAction<PageUpIntent>(
-            onInvoke: (_) => _scrollBy(-350),
-          ),
-          PageDownIntent: CallbackAction<PageDownIntent>(
-            onInvoke: (_) => _scrollBy(350),
-          ),
-        },
-        child: Focus(
-          autofocus: true,
-          focusNode: _screenFocus,
-          child: Scaffold(
-            appBar: AppBar(
-              title: const Text('MyNote'),
-              actions: [
-                IconButton(
-                  icon: const Icon(Icons.logout),
-                  tooltip: 'Logout',
-                  onPressed: _logout,
-                ),
-                IconButton(
-                  icon: const Icon(Icons.person_remove),
-                  tooltip: 'Reset Account',
-                  onPressed: _resetAccount,
-                ),
-              ],
-            ),
-            floatingActionButton: FloatingActionButton(
-              onPressed: _addNewNote,
-              child: const Icon(Icons.add),
-            ),
-            body: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 700),
-                child: Column(
-                  children: [
-                    _filterBar(),
-                    Expanded(
-                      child: _isLoading
-                          ? const Center(child: CircularProgressIndicator())
-                          : notes.isEmpty
-                          ? const Center(
-                              child: Text('No notes yet. Tap + to add one.'),
-                            )
-                          : ListView(
-                              controller: _scroll,
-                              children: listChildren,
-                            ),
-                    ),
-                  ],
-                ),
+            padding: const EdgeInsets.all(10),
+            child: TextField(
+              decoration: const InputDecoration(
+                hintText: 'Search...',
+                prefixIcon: Icon(Icons.search),
               ),
+              onChanged: (v) {
+                _searchQuery = v;
+                _applyFilters();
+              },
             ),
           ),
-        ),
+
+          // 📋 LIST
+          Expanded(
+            child: ReorderableListView.builder(
+              onReorder: _reorder,
+              itemCount: _filteredNotes.length,
+              itemBuilder: (context, index) {
+                final note = _filteredNotes[index];
+
+                return Dismissible(
+                  key: ValueKey(note.id),
+                  onDismissed: (_) => _deleteNote(note.id),
+                  background: Container(color: Colors.red),
+
+                  child: Card(
+                    margin: const EdgeInsets.all(8),
+                    child: ListTile(
+                      title: Text(note.title),
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(note.content),
+
+                          const SizedBox(height: 6),
+
+                          Text(
+                            "Updated: ${formatDate(note.updatedAt)}",
+                            style: const TextStyle(fontSize: 12),
+                          ),
+                        ],
+                      ),
+
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            icon: Icon(
+                              note.isFavorite
+                                  ? Icons.star
+                                  : Icons.star_border,
+                              color: Colors.amber,
+                            ),
+                            onPressed: () => _toggleFavorite(note),
+                          ),
+                          IconButton(
+                            icon: Icon(
+                              note.isPinned
+                                  ? Icons.push_pin
+                                  : Icons.push_pin_outlined,
+                            ),
+                            onPressed: () => _togglePin(note),
+                          ),
+                        ],
+                      ),
+
+                      onTap: () => _editNote(note),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+
+      floatingActionButton: FloatingActionButton(
+        backgroundColor: const Color(0xFF5B2C83),
+        onPressed: () async {
+          final result = await Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const EditNoteScreen()),
+          );
+
+          if (result != null && result is Note) {
+            final user = _client.auth.currentUser;
+            if (user == null) return;
+
+            await _client.from('notes').insert({
+              'id': result.id,
+              'user_id': user.id,
+              'title': result.title,
+              'content': result.content,
+              'folder': result.folder,
+              'category': result.category,
+              'tags': result.tags,
+              'created_at': result.createdAt.toIso8601String(),
+              'updated_at': result.updatedAt.toIso8601String(),
+              'is_pinned': result.isPinned,
+              'is_favorite': result.isFavorite,
+              'position': result.position,
+            });
+
+            _loadNotes();
+          }
+        },
+        child: const Icon(Icons.add),
       ),
     );
   }

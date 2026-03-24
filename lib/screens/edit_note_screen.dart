@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import '../models/note.dart';
 
 class EditNoteScreen extends StatefulWidget {
-  final Note? existing;
+  final Note? note;
 
-  const EditNoteScreen({super.key, this.existing});
+  const EditNoteScreen({super.key, this.note});
 
   @override
   State<EditNoteScreen> createState() => _EditNoteScreenState();
@@ -37,15 +36,16 @@ class _EditNoteScreenState extends State<EditNoteScreen> {
     super.initState();
 
     _titleController = TextEditingController(
-      text: widget.existing?.title ?? '',
-    );
-    _contentController = TextEditingController(
-      text: widget.existing?.content ?? '',
+      text: widget.note?.title ?? '',
     );
 
-    _selectedCategory = widget.existing?.category ?? 'General';
-    _folderCtrl.text = widget.existing?.folder ?? 'General';
-    _tagsCtrl.text = (widget.existing?.tags ?? []).join(', ');
+    _contentController = TextEditingController(
+      text: widget.note?.content ?? '',
+    );
+
+    _selectedCategory = widget.note?.category ?? 'General';
+    _folderCtrl.text = widget.note?.folder ?? 'General';
+    _tagsCtrl.text = (widget.note?.tags ?? []).join(', ');
   }
 
   @override
@@ -59,6 +59,9 @@ class _EditNoteScreenState extends State<EditNoteScreen> {
     super.dispose();
   }
 
+  // =========================
+  // TAG PARSER
+  // =========================
   List<String> _parseTags(String raw) {
     return raw
         .split(',')
@@ -67,29 +70,24 @@ class _EditNoteScreenState extends State<EditNoteScreen> {
         .toList();
   }
 
-  void _insertNewLine() {
-    final text = _contentController.text;
-    final sel = _contentController.selection;
-
-    final start = sel.isValid ? sel.start : text.length;
-    final end = sel.isValid ? sel.end : text.length;
-
-    final newText = text.replaceRange(start, end, '\n');
-    _contentController.text = newText;
-    _contentController.selection = TextSelection.collapsed(offset: start + 1);
-  }
-
+  // =========================
+  // SAVE NOTE
+  // =========================
   void _save() {
     final title = _titleController.text.trim();
     final content = _contentController.text.trim();
+
     final folder = _folderCtrl.text.trim().isEmpty
         ? 'General'
         : _folderCtrl.text.trim();
+
     final tags = _parseTags(_tagsCtrl.text);
 
     if (title.isEmpty && content.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a title or note content.')),
+        const SnackBar(
+          content: Text('Please enter a title or note content.'),
+        ),
       );
       return;
     }
@@ -97,25 +95,35 @@ class _EditNoteScreenState extends State<EditNoteScreen> {
     final now = DateTime.now();
 
     final note = Note(
-      id: widget.existing?.id ?? now.millisecondsSinceEpoch.toString(),
+      id: widget.note?.id ?? now.millisecondsSinceEpoch.toString(),
       title: title,
       content: content,
       folder: folder,
       category: _selectedCategory,
       tags: tags,
-      createdAt: widget.existing?.createdAt ?? now,
+      createdAt: widget.note?.createdAt ?? now,
       updatedAt: now,
+
+      // ✅ KEEP EXISTING VALUES
+      isPinned: widget.note?.isPinned ?? false,
+      isFavorite: widget.note?.isFavorite ?? false,
+      position: widget.note?.position ?? 0,
     );
 
     Navigator.pop(context, note);
   }
 
+  // =========================
+  // INPUT STYLE
+  // =========================
   InputDecoration _fieldDecoration(String label) {
     return InputDecoration(
       labelText: label,
       filled: true,
       fillColor: Colors.white.withAlpha(230),
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: const BorderSide(width: 1.2),
@@ -127,32 +135,17 @@ class _EditNoteScreenState extends State<EditNoteScreen> {
     );
   }
 
-  bool _isEnterKey(KeyEvent event) {
-    final lk = event.logicalKey;
-    final pk = event.physicalKey;
-
-    if (lk == LogicalKeyboardKey.enter ||
-        lk == LogicalKeyboardKey.numpadEnter ||
-        pk == PhysicalKeyboardKey.enter ||
-        pk == PhysicalKeyboardKey.numpadEnter) {
-      return true;
-    }
-
-    final label = lk.keyLabel.toLowerCase();
-    if (label == 'enter' || label == 'return') {
-      return true;
-    }
-
-    return false;
-  }
-
   @override
   Widget build(BuildContext context) {
-    final isEditing = widget.existing != null;
+    final isEditing = widget.note != null;
 
     return Scaffold(
+      backgroundColor: const Color(0xFFF2EAFE),
+
       appBar: AppBar(
         title: Text(isEditing ? 'Edit Note' : 'New Note'),
+        backgroundColor: const Color(0xFF5B2C83),
+
         actions: [
           IconButton(
             tooltip: 'Save',
@@ -161,13 +154,16 @@ class _EditNoteScreenState extends State<EditNoteScreen> {
           ),
         ],
       ),
+
       body: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 700),
           child: Padding(
             padding: const EdgeInsets.all(16),
+
             child: Column(
               children: [
+                // TITLE
                 TextField(
                   focusNode: _titleFocus,
                   controller: _titleController,
@@ -175,21 +171,24 @@ class _EditNoteScreenState extends State<EditNoteScreen> {
                   textInputAction: TextInputAction.next,
                   onSubmitted: (_) => _contentFocus.requestFocus(),
                 ),
+
                 const SizedBox(height: 12),
+
+                // FOLDER
                 TextField(
                   controller: _folderCtrl,
-                  decoration: _fieldDecoration(
-                    'Folder (ex: CSIT 112 / Chores)',
-                  ),
-                  textInputAction: TextInputAction.next,
+                  decoration: _fieldDecoration('Folder'),
                 ),
+
                 const SizedBox(height: 12),
+
+                // CATEGORY
                 DropdownButtonFormField<String>(
                   initialValue: _selectedCategory,
                   decoration: _fieldDecoration('Category'),
                   items: _categories
                       .map(
-                        (cat) => DropdownMenuItem<String>(
+                        (cat) => DropdownMenuItem(
                           value: cat,
                           child: Text(cat),
                         ),
@@ -201,41 +200,25 @@ class _EditNoteScreenState extends State<EditNoteScreen> {
                     });
                   },
                 ),
+
                 const SizedBox(height: 12),
+
+                // TAGS
                 TextField(
                   controller: _tagsCtrl,
-                  decoration: _fieldDecoration(
-                    'Tags (comma-separated: exam, week3, project)',
-                  ),
-                  textInputAction: TextInputAction.next,
+                  decoration: _fieldDecoration('Tags (comma separated)'),
                 ),
+
                 const SizedBox(height: 12),
+
+                // CONTENT
                 Expanded(
-                  child: Focus(
-                    onKeyEvent: (node, event) {
-                      if (event is! KeyDownEvent) {
-                        return KeyEventResult.ignored;
-                      }
-
-                      if (_contentFocus.hasFocus && _isEnterKey(event)) {
-                        _insertNewLine();
-                        return KeyEventResult.handled;
-                      }
-
-                      return KeyEventResult.ignored;
-                    },
-                    child: TextField(
-                      focusNode: _contentFocus,
-                      controller: _contentController,
-                      decoration: _fieldDecoration('Note'),
-                      keyboardType: TextInputType.multiline,
-                      textInputAction: TextInputAction.newline,
-                      maxLines: null,
-                      expands: true,
-                      textAlignVertical: TextAlignVertical.top,
-                      textAlign: TextAlign.start,
-                      scrollPadding: const EdgeInsets.all(20),
-                    ),
+                  child: TextField(
+                    focusNode: _contentFocus,
+                    controller: _contentController,
+                    decoration: _fieldDecoration('Note'),
+                    maxLines: null,
+                    expands: true,
                   ),
                 ),
               ],

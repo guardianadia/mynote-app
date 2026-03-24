@@ -62,9 +62,7 @@ class _LoginScreenState extends State<LoginScreen> {
       });
     } finally {
       if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
+        setState(() => _isLoading = false);
       }
     }
   }
@@ -104,6 +102,7 @@ class _LoginScreenState extends State<LoginScreen> {
               style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 16),
+
             TextField(
               controller: _userCtrl,
               decoration: const InputDecoration(
@@ -111,7 +110,9 @@ class _LoginScreenState extends State<LoginScreen> {
                 border: OutlineInputBorder(),
               ),
             ),
+
             const SizedBox(height: 12),
+
             TextField(
               controller: _passCtrl,
               obscureText: _hidePass,
@@ -126,24 +127,26 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               ),
             ),
+
             const SizedBox(height: 10),
+
             if (_error != null)
               Text(_error!, style: const TextStyle(color: Colors.red)),
+
             const SizedBox(height: 10),
+
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: _isLoading ? null : _login,
                 child: _isLoading
-                    ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
+                    ? const CircularProgressIndicator()
                     : const Text('Login'),
               ),
             ),
+
             const SizedBox(height: 8),
+
             SizedBox(
               width: double.infinity,
               child: OutlinedButton(
@@ -151,7 +154,9 @@ class _LoginScreenState extends State<LoginScreen> {
                 child: const Text('Create New Account'),
               ),
             ),
+
             const SizedBox(height: 6),
+
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [

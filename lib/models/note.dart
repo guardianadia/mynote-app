@@ -8,6 +8,11 @@ class Note {
   final DateTime createdAt;
   final DateTime updatedAt;
 
+  // ✅ NEW FIELDS
+  final bool isPinned;
+  final bool isFavorite;
+  final int position;
+
   Note({
     required this.id,
     required this.title,
@@ -17,8 +22,38 @@ class Note {
     required this.tags,
     required this.createdAt,
     required this.updatedAt,
+
+    // ✅ NEW
+    this.isPinned = false,
+    this.isFavorite = false,
+    this.position = 0,
   });
 
+  // =========================
+  // FROM SUPABASE
+  // =========================
+  factory Note.fromMap(Map<String, dynamic> map) {
+    return Note(
+      id: map['id'] ?? '',
+      title: map['title'] ?? '',
+      content: map['content'] ?? '',
+      folder: map['folder'] ?? 'General',
+      category: map['category'] ?? 'General',
+      tags: List<String>.from(map['tags'] ?? []),
+
+      createdAt: DateTime.parse(map['created_at']),
+      updatedAt: DateTime.parse(map['updated_at']),
+
+      // ✅ NEW (SAFE DEFAULTS)
+      isPinned: map['is_pinned'] ?? false,
+      isFavorite: map['is_favorite'] ?? false,
+      position: map['position'] ?? 0,
+    );
+  }
+
+  // =========================
+  // TO MAP (OPTIONAL)
+  // =========================
   Map<String, dynamic> toMap() {
     return {
       'id': id,
@@ -29,44 +64,11 @@ class Note {
       'tags': tags,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
+
+      // ✅ NEW
+      'is_pinned': isPinned,
+      'is_favorite': isFavorite,
+      'position': position,
     };
-  }
-
-  factory Note.fromMap(Map<String, dynamic> map) {
-    DateTime parseDate(dynamic value) {
-      if (value == null) return DateTime.now();
-      if (value is DateTime) return value;
-      return DateTime.tryParse(value.toString()) ?? DateTime.now();
-    }
-
-    List<String> parseTags(dynamic value) {
-      if (value is List) {
-        return value
-            .map((e) => e.toString().trim())
-            .where((s) => s.isNotEmpty)
-            .toList();
-      }
-
-      if (value is String) {
-        return value
-            .split(',')
-            .map((s) => s.trim())
-            .where((s) => s.isNotEmpty)
-            .toList();
-      }
-
-      return [];
-    }
-
-    return Note(
-      id: (map['id'] ?? '').toString(),
-      title: (map['title'] ?? '').toString(),
-      content: (map['content'] ?? '').toString(),
-      folder: (map['folder'] ?? 'General').toString(),
-      category: (map['category'] ?? 'General').toString(),
-      tags: parseTags(map['tags']),
-      createdAt: parseDate(map['created_at']),
-      updatedAt: parseDate(map['updated_at']),
-    );
   }
 }

@@ -14,6 +14,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   final _userCtrl = TextEditingController();
   final _passCtrl = TextEditingController();
+  final _confirmCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
 
   final _a1Ctrl = TextEditingController();
@@ -34,6 +35,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   void dispose() {
     _userCtrl.dispose();
     _passCtrl.dispose();
+    _confirmCtrl.dispose();
     _emailCtrl.dispose();
     _a1Ctrl.dispose();
     _a2Ctrl.dispose();
@@ -44,6 +46,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   Future<void> _register() async {
     final username = _userCtrl.text.trim();
     final password = _passCtrl.text.trim();
+    final confirm = _confirmCtrl.text.trim(); // ✅ FIXED
     final email = _emailCtrl.text.trim();
 
     final a1 = _a1Ctrl.text.trim();
@@ -52,11 +55,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     if (username.isEmpty ||
         password.isEmpty ||
+        confirm.isEmpty ||
         email.isEmpty ||
         a1.isEmpty ||
         a2.isEmpty ||
         a3.isEmpty) {
       setState(() => _error = 'Please fill out all fields.');
+      return;
+    }
+
+    // ✅ CONFIRM PASSWORD CHECK
+    if (password != confirm) {
+      setState(() => _error = 'Passwords do not match.');
       return;
     }
 
@@ -110,6 +120,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               ),
             ),
             const SizedBox(height: 12),
+
             TextField(
               controller: _passCtrl,
               obscureText: _hidePass,
@@ -124,7 +135,26 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 ),
               ),
             ),
+
             const SizedBox(height: 12),
+
+            TextField(
+              controller: _confirmCtrl,
+              obscureText: _hidePass,
+              decoration: InputDecoration(
+                labelText: 'Confirm Password',
+                border: const OutlineInputBorder(),
+                suffixIcon: IconButton(
+                  icon: Icon(
+                    _hidePass ? Icons.visibility : Icons.visibility_off,
+                  ),
+                  onPressed: () => setState(() => _hidePass = !_hidePass),
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 12),
+
             TextField(
               controller: _emailCtrl,
               decoration: const InputDecoration(
@@ -133,7 +163,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
               ),
               keyboardType: TextInputType.emailAddress,
             ),
+
             const SizedBox(height: 16),
+
             const Align(
               alignment: Alignment.centerLeft,
               child: Text(
@@ -141,26 +173,28 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 style: TextStyle(fontWeight: FontWeight.w700),
               ),
             ),
+
             const SizedBox(height: 8),
+
             _qBlock(_questions[0], _a1Ctrl),
             const SizedBox(height: 10),
             _qBlock(_questions[1], _a2Ctrl),
             const SizedBox(height: 10),
             _qBlock(_questions[2], _a3Ctrl),
+
             const SizedBox(height: 10),
+
             if (_error != null)
               Text(_error!, style: const TextStyle(color: Colors.red)),
+
             const SizedBox(height: 10),
+
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: _isLoading ? null : _register,
                 child: _isLoading
-                    ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
+                    ? const CircularProgressIndicator()
                     : const Text('Create Account'),
               ),
             ),
