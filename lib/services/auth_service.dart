@@ -36,8 +36,9 @@ class AuthService {
       'username': cleanUsername,
       'recovery_email': email,
       'security_questions': securityQuestions,
-      'security_answers':
-          securityAnswers.map((a) => a.toLowerCase().trim()).toList(),
+      'security_answers': securityAnswers
+          .map((a) => a.toLowerCase().trim())
+          .toList(),
     });
   }
 
@@ -56,10 +57,7 @@ class AuthService {
     if (email == null || email.isEmpty) return false;
 
     try {
-      await _client.auth.signInWithPassword(
-        email: email,
-        password: password,
-      );
+      await _client.auth.signInWithPassword(email: email, password: password);
       return true;
     } catch (_) {
       return false;

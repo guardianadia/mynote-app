@@ -41,11 +41,7 @@ void main() {
     });
 
     testWidgets('SplashScreen shows MyNote text', (WidgetTester tester) async {
-      await tester.pumpWidget(
-        const MaterialApp(
-          home: SplashScreen(),
-        ),
-      );
+      await tester.pumpWidget(const MaterialApp(home: SplashScreen()));
 
       expect(find.text('MyNote'), findsOneWidget);
 
@@ -54,11 +50,7 @@ void main() {
     });
 
     testWidgets('LoginScreen UI loads correctly', (WidgetTester tester) async {
-      await tester.pumpWidget(
-        const MaterialApp(
-          home: LoginScreen(),
-        ),
-      );
+      await tester.pumpWidget(const MaterialApp(home: LoginScreen()));
 
       await tester.pump();
 
@@ -71,13 +63,10 @@ void main() {
       expect(find.text('Forgot password?'), findsOneWidget);
     });
 
-    testWidgets('RegisterScreen UI loads correctly',
-        (WidgetTester tester) async {
-      await tester.pumpWidget(
-        const MaterialApp(
-          home: RegisterScreen(),
-        ),
-      );
+    testWidgets('RegisterScreen UI loads correctly', (
+      WidgetTester tester,
+    ) async {
+      await tester.pumpWidget(const MaterialApp(home: RegisterScreen()));
 
       await tester.pump();
 
@@ -88,13 +77,8 @@ void main() {
       expect(find.text('Security Questions (3)'), findsOneWidget);
     });
 
-    testWidgets('ForgotUsernameScreen UI loads',
-        (WidgetTester tester) async {
-      await tester.pumpWidget(
-        const MaterialApp(
-          home: ForgotUsernameScreen(),
-        ),
-      );
+    testWidgets('ForgotUsernameScreen UI loads', (WidgetTester tester) async {
+      await tester.pumpWidget(const MaterialApp(home: ForgotUsernameScreen()));
 
       await tester.pump();
 
@@ -103,13 +87,8 @@ void main() {
       expect(find.text('Recover Username'), findsOneWidget);
     });
 
-    testWidgets('ForgotPasswordScreen UI loads',
-        (WidgetTester tester) async {
-      await tester.pumpWidget(
-        const MaterialApp(
-          home: ForgotPasswordScreen(),
-        ),
-      );
+    testWidgets('ForgotPasswordScreen UI loads', (WidgetTester tester) async {
+      await tester.pumpWidget(const MaterialApp(home: ForgotPasswordScreen()));
 
       await tester.pump();
 
@@ -119,11 +98,7 @@ void main() {
     });
 
     testWidgets('EditNoteScreen UI loads', (WidgetTester tester) async {
-      await tester.pumpWidget(
-        const MaterialApp(
-          home: EditNoteScreen(),
-        ),
-      );
+      await tester.pumpWidget(const MaterialApp(home: EditNoteScreen()));
 
       await tester.pump();
 
@@ -134,11 +109,7 @@ void main() {
     });
 
     testWidgets('LoginScreen accepts input', (WidgetTester tester) async {
-      await tester.pumpWidget(
-        const MaterialApp(
-          home: LoginScreen(),
-        ),
-      );
+      await tester.pumpWidget(const MaterialApp(home: LoginScreen()));
 
       await tester.pump();
 
@@ -153,13 +124,8 @@ void main() {
       expect(find.text('password123'), findsOneWidget);
     });
 
-    testWidgets('RegisterScreen accepts input',
-        (WidgetTester tester) async {
-      await tester.pumpWidget(
-        const MaterialApp(
-          home: RegisterScreen(),
-        ),
-      );
+    testWidgets('RegisterScreen accepts input', (WidgetTester tester) async {
+      await tester.pumpWidget(const MaterialApp(home: RegisterScreen()));
 
       await tester.pump();
 

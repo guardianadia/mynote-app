@@ -25,11 +25,27 @@ class PageDownIntent extends Intent {
 
 String _folderEmoji(String folder) {
   final f = folder.toLowerCase();
-  if (f.contains('csit') || f.contains('course') || f.contains('class')) return '🎓';
-  if (f.contains('math') || f.contains('amat')) return '📐';
-  if (f.contains('homework')) return '📚';
-  if (f.contains('chore') || f.contains('home')) return '🏠';
-  if (f.contains('work') || f.contains('job')) return '💼';
+
+  if (f.contains('csit') || f.contains('course') || f.contains('class')) {
+    return '🎓';
+  }
+
+  if (f.contains('math') || f.contains('amat')) {
+    return '📐';
+  }
+
+  if (f.contains('homework')) {
+    return '📚';
+  }
+
+  if (f.contains('chore') || f.contains('home')) {
+    return '🏠';
+  }
+
+  if (f.contains('work') || f.contains('job')) {
+    return '💼';
+  }
+
   return '📁';
 }
 
@@ -307,11 +323,7 @@ class _NotesListScreenState extends State<NotesListScreen> {
       ),
       child: Text(
         category,
-        style: TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w700,
-          color: c,
-        ),
+        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: c),
       ),
     );
   }
@@ -329,11 +341,7 @@ class _NotesListScreenState extends State<NotesListScreen> {
       ),
       child: Text(
         '$emoji $folder',
-        style: TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w700,
-          color: c,
-        ),
+        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: c),
       ),
     );
   }
@@ -439,8 +447,9 @@ class _NotesListScreenState extends State<NotesListScreen> {
     final notes = _filteredNotes;
     final groups = _groupByFolder(notes);
 
-    final folderOrder =
-        _filterFolder == 'All' ? _allFolders : <String>[_filterFolder];
+    final folderOrder = _filterFolder == 'All'
+        ? _allFolders
+        : <String>[_filterFolder];
 
     final List<Widget> listChildren = [];
 
@@ -515,13 +524,13 @@ class _NotesListScreenState extends State<NotesListScreen> {
                       child: _isLoading
                           ? const Center(child: CircularProgressIndicator())
                           : notes.isEmpty
-                              ? const Center(
-                                  child: Text('No notes yet. Tap + to add one.'),
-                                )
-                              : ListView(
-                                  controller: _scroll,
-                                  children: listChildren,
-                                ),
+                          ? const Center(
+                              child: Text('No notes yet. Tap + to add one.'),
+                            )
+                          : ListView(
+                              controller: _scroll,
+                              children: listChildren,
+                            ),
                     ),
                   ],
                 ),
