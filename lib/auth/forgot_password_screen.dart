@@ -13,7 +13,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   final _emailCtrl = TextEditingController();
 
   bool _isLoading = false;
-  String? _msg;
+  String? _message;
   String? _error;
 
   @override
@@ -27,8 +27,8 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
     if (email.isEmpty) {
       setState(() {
-        _error = 'Please enter your recovery email.';
-        _msg = null;
+        _error = 'Enter your recovery email.';
+        _message = null;
       });
       return;
     }
@@ -36,7 +36,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     setState(() {
       _isLoading = true;
       _error = null;
-      _msg = null;
+      _message = null;
     });
 
     try {
@@ -45,12 +45,11 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       if (!mounted) return;
 
       setState(() {
-        _msg =
-            'Password reset email sent. Please check your inbox and follow the reset link.';
+        _message = "📧 Reset link sent to your email!";
       });
     } catch (e) {
       setState(() {
-        _error = 'Could not send reset email: $e';
+        _error = 'Error sending reset email: $e';
       });
     } finally {
       if (mounted) {
@@ -68,16 +67,17 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Forgot Password')),
-      body: SingleChildScrollView(
+      appBar: AppBar(title: const Text('Reset Password')),
+      body: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
             const Text(
-              'Enter your recovery email and we will send you a password reset link.',
+              'Enter your recovery email to receive a reset link.',
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
+
             TextField(
               controller: _emailCtrl,
               keyboardType: TextInputType.emailAddress,
@@ -86,7 +86,9 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                 border: OutlineInputBorder(),
               ),
             ),
-            const SizedBox(height: 16),
+
+            const SizedBox(height: 12),
+
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
@@ -100,14 +102,19 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                     : const Text('Send Reset Email'),
               ),
             ),
+
             const SizedBox(height: 12),
+
             if (_error != null)
               Text(_error!, style: const TextStyle(color: Colors.red)),
-            if (_msg != null) ...[
+
+            if (_message != null) ...[
               Text(
-                _msg!,
-                style: const TextStyle(fontWeight: FontWeight.w700),
-                textAlign: TextAlign.center,
+                _message!,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w700,
+                  color: Colors.green,
+                ),
               ),
               const SizedBox(height: 12),
               SizedBox(

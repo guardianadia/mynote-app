@@ -91,86 +91,166 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Login')),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            const SizedBox(height: 12),
-            const Text(
-              'MyNote Login',
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 16),
+      appBar: AppBar(
+        title: const Text(''),
+        elevation: 0,
+        backgroundColor: Colors.transparent,
+      ),
+      backgroundColor: const Color(0xFFF2EAFE),
 
-            TextField(
-              controller: _userCtrl,
-              decoration: const InputDecoration(
-                labelText: 'Username',
-                border: OutlineInputBorder(),
-              ),
-            ),
-
-            const SizedBox(height: 12),
-
-            TextField(
-              controller: _passCtrl,
-              obscureText: _hidePass,
-              decoration: InputDecoration(
-                labelText: 'Password',
-                border: const OutlineInputBorder(),
-                suffixIcon: IconButton(
-                  icon: Icon(
-                    _hidePass ? Icons.visibility : Icons.visibility_off,
-                  ),
-                  onPressed: () => setState(() => _hidePass = !_hidePass),
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 10),
-
-            if (_error != null)
-              Text(_error!, style: const TextStyle(color: Colors.red)),
-
-            const SizedBox(height: 10),
-
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: _isLoading ? null : _login,
-                child: _isLoading
-                    ? const CircularProgressIndicator()
-                    : const Text('Login'),
-              ),
-            ),
-
-            const SizedBox(height: 8),
-
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton(
-                onPressed: _isLoading ? null : _goToRegister,
-                child: const Text('Create New Account'),
-              ),
-            ),
-
-            const SizedBox(height: 6),
-
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      body: Center(
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                TextButton(
-                  onPressed: _isLoading ? null : _goToForgotUsername,
-                  child: const Text('Forgot username?'),
+                const SizedBox(height: 20),
+
+                //  TITLE
+                const Text(
+                  'MyNote',
+                  style: TextStyle(
+                    fontSize: 34,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF5B2C83),
+                    letterSpacing: 1,
+                  ),
                 ),
-                TextButton(
-                  onPressed: _isLoading ? null : _goToForgotPassword,
-                  child: const Text('Forgot password?'),
+
+                const SizedBox(height: 30),
+
+                // USERNAME
+                TextField(
+                  controller: _userCtrl,
+                  decoration: InputDecoration(
+                    labelText: 'Username',
+                    prefixIcon: const Icon(Icons.person),
+                    filled: true,
+                    fillColor: Colors.white,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 16),
+
+                // PASSWORD
+                TextField(
+                  controller: _passCtrl,
+                  obscureText: _hidePass,
+                  decoration: InputDecoration(
+                    labelText: 'Password',
+                    prefixIcon: const Icon(Icons.lock),
+                    filled: true,
+                    fillColor: Colors.white,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _hidePass
+                            ? Icons.visibility
+                            : Icons.visibility_off,
+                      ),
+                      onPressed: () =>
+                          setState(() => _hidePass = !_hidePass),
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 12),
+
+                if (_error != null)
+                  Text(
+                    _error!,
+                    style: const TextStyle(color: Colors.red),
+                  ),
+
+                const SizedBox(height: 24),
+
+                //  LOGIN BUTTON (UPDATED)
+                Container(
+                  width: double.infinity,
+                  height: 52,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [
+                        Color(0xFF9575CD),
+                        Color(0xFF7E57C2),
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: ElevatedButton(
+                    onPressed: _isLoading ? null : _login,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.transparent,
+                      shadowColor: Colors.transparent,
+                    ),
+                    child: _isLoading
+                        ? const CircularProgressIndicator(
+                            color: Colors.white,
+                          )
+                        : const Text(
+                            'Login',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                  ),
+                ),
+
+                const SizedBox(height: 14),
+
+                // REGISTER BUTTON
+                SizedBox(
+                  width: double.infinity,
+                  height: 50,
+                  child: OutlinedButton(
+                    onPressed: _isLoading ? null : _goToRegister,
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(
+                        color: Color(0xFF5B2C83),
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                    child: const Text(
+                      'Create New Account',
+                      style: TextStyle(
+                        color: Color(0xFF5B2C83),
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 10),
+
+                // FORGOT LINKS
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    TextButton(
+                      onPressed:
+                          _isLoading ? null : _goToForgotUsername,
+                      child: const Text('Forgot username?'),
+                    ),
+                    TextButton(
+                      onPressed:
+                          _isLoading ? null : _goToForgotPassword,
+                      child: const Text('Forgot password?'),
+                    ),
+                  ],
                 ),
               ],
             ),
-          ],
+          ),
         ),
       ),
     );
