@@ -17,47 +17,40 @@ class _NotesListScreenState extends State<NotesListScreen> {
 
   String _searchQuery = '';
 
-  // =========================
-  // FILTER + SORT
-  // =========================
-  List<Note> _applyFilters(List<Note> notes) {
-    List<Note> temp = notes.where((note) {
-      return note.title.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-          note.content.toLowerCase().contains(_searchQuery.toLowerCase());
-    }).toList();
+  late Future<List<Note>> _notesFuture;
 
-    // 📌 PIN FIRST
-    temp.sort((a, b) {
-      if (a.isPinned == b.isPinned) return 0;
-      return a.isPinned ? -1 : 1;
-    });
+  @override
+  void initState() {
+    super.initState();
+    _loadNotes();
+  }
 
-    // 🕒 SORT BY UPDATED
-    temp.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
-
-    return temp;
+  void _loadNotes() {
+    _notesFuture = _noteService.getNotes();
   }
 
   // =========================
-  // DELETE (FIXED + FEEDBACK)
+  // FILTER
+  // =========================
+  List<Note> _applyFilters(List<Note> notes) {
+    return notes.where((note) {
+      return note.title.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+          note.content.toLowerCase().contains(_searchQuery.toLowerCase());
+    }).toList()
+      ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+  }
+
+  // =========================
+  // DELETE
   // =========================
   Future<void> _deleteNote(String id) async {
-    try {
-      await _noteService.deleteNote(id);
+    await _noteService.deleteNote(id);
 
-      if (!mounted) return;
+    if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Note deleted 🗑️"),
-          duration: Duration(seconds: 2),
-        ),
-      );
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Delete failed: $e")),
-      );
-    }
+    setState(() {
+      _loadNotes(); // 🔥 refresh
+    });
   }
 
   // =========================
@@ -70,6 +63,13 @@ class _NotesListScreenState extends State<NotesListScreen> {
         builder: (_) => EditNoteScreen(note: note),
       ),
     );
+
+    // 🔥 THIS IS THE FIX
+    if (!mounted) return;
+
+    setState(() {
+      _loadNotes(); // reload after save
+    });
   }
 
   // =========================
@@ -85,9 +85,6 @@ class _NotesListScreenState extends State<NotesListScreen> {
     return "${d.month}/${d.day}/${d.year}";
   }
 
-  // =========================
-  // UI
-  // =========================
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -105,19 +102,16 @@ class _NotesListScreenState extends State<NotesListScreen> {
           ),
         ),
         actions: [
-          Tooltip(
-            message: "Logout",
-            child: IconButton(
-              icon: const Icon(Icons.logout, color: Color(0xFF5B2C83)),
-              onPressed: _logout,
-            ),
+          IconButton(
+            icon: const Icon(Icons.logout, color: Color(0xFF5B2C83)),
+            onPressed: _logout,
           ),
         ],
       ),
 
       body: Column(
         children: [
-          // 🔍 SEARCH
+          // SEARCH
           Padding(
             padding: const EdgeInsets.all(16),
             child: TextField(
@@ -137,141 +131,48 @@ class _NotesListScreenState extends State<NotesListScreen> {
             ),
           ),
 
-          //  NOTES LIST
+          // NOTES
           Expanded(
-            child: StreamBuilder<List<Note>>(
-              stream: _noteService.listenToNotes(),
+            child: FutureBuilder<List<Note>>(
+              future: _notesFuture,
               builder: (context, snapshot) {
-                //  LOADING
-                if (snapshot.connectionState == ConnectionState.waiting) {
+                if (snapshot.connectionState ==
+                    ConnectionState.waiting) {
                   return const Center(
                     child: CircularProgressIndicator(),
                   );
                 }
 
-                //  ERROR
-                if (snapshot.hasError) {
-                  return Center(
-                    child: Text("Error: ${snapshot.error}"),
-                  );
-                }
+                final notes =
+                    _applyFilters(snapshot.data ?? []);
 
-                final notes = _applyFilters(snapshot.data ?? []);
-
-                //  EMPTY STATE
                 if (notes.isEmpty) {
                   return const Center(
-                    child: Text(
-                      "No notes yet ✨",
-                      style: TextStyle(fontSize: 16),
-                    ),
+                    child: Text("No notes yet ✨"),
                   );
                 }
 
                 return ListView.builder(
-                  padding: const EdgeInsets.only(bottom: 80),
                   itemCount: notes.length,
                   itemBuilder: (context, index) {
                     final note = notes[index];
 
-                    return Dismissible(
-                      key: ValueKey(note.id),
-                      direction: DismissDirection.endToStart,
-
-                      onDismissed: (_) => _deleteNote(note.id),
-
-                      background: Container(
-                        margin: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: Colors.red,
-                          borderRadius: BorderRadius.circular(18),
-                        ),
-                        alignment: Alignment.centerRight,
-                        padding: const EdgeInsets.only(right: 20),
-                        child: const Icon(Icons.delete,
-                            color: Colors.white),
+                    return ListTile(
+                      title: Text(
+                        note.title.isEmpty
+                            ? "Untitled"
+                            : note.title,
                       ),
-
-                      child: GestureDetector(
-                        onTap: () => _openEditor(note),
-
-                        child: Container(
-                          margin: const EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 8),
-                          padding: const EdgeInsets.all(18),
-
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(18),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.05),
-                                blurRadius: 12,
-                                offset: const Offset(0, 6),
-                              ),
-                            ],
-                          ),
-
-                          child: Column(
-                            crossAxisAlignment:
-                                CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: Text(
-                                      note.title.isEmpty
-                                          ? "Untitled"
-                                          : note.title,
-                                      style: const TextStyle(
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                  ),
-
-                                  if (note.isPinned)
-                                    const Icon(Icons.push_pin,
-                                        size: 18,
-                                        color: Colors.deepPurple),
-                                ],
-                              ),
-
-                              const SizedBox(height: 6),
-
-                              Text(
-                                note.content,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(fontSize: 14),
-                              ),
-
-                              const SizedBox(height: 12),
-
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(
-                                    note.category,
-                                    style: const TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.deepPurple,
-                                    ),
-                                  ),
-                                  Text(
-                                    formatDate(note.updatedAt),
-                                    style: const TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.grey,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
+                      subtitle: Text(
+                        note.content,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      onTap: () => _openEditor(note),
+                      trailing: IconButton(
+                        icon: const Icon(Icons.delete),
+                        onPressed: () =>
+                            _deleteNote(note.id),
                       ),
                     );
                   },
@@ -282,15 +183,10 @@ class _NotesListScreenState extends State<NotesListScreen> {
         ],
       ),
 
-      //  ADD NOTE BUTTON
-      floatingActionButton: Tooltip(
-        message: "Create New Note",
-        child: FloatingActionButton(
-          backgroundColor: const Color(0xFF5B2C83),
-          elevation: 6,
-          child: const Icon(Icons.add),
-          onPressed: () => _openEditor(null),
-        ),
+      floatingActionButton: FloatingActionButton(
+        backgroundColor: const Color(0xFF5B2C83),
+        child: const Icon(Icons.add),
+        onPressed: () => _openEditor(null),
       ),
     );
   }

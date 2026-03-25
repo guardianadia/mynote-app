@@ -1,5 +1,4 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:hive/hive.dart';
 import 'package:uuid/uuid.dart';
 import 'dart:developer' as dev;
 
@@ -7,17 +6,16 @@ import '../models/note.dart';
 
 class NoteService {
   final supabase = Supabase.instance.client;
-  final _box = Hive.box('notes_cache');
   final _uuid = const Uuid();
 
   // =========================
-  //  SAVE / UPDATE (FINAL FIX)
+  // SAVE / UPDATE (FINAL CLEAN FIX)
   // =========================
   Future<void> saveNote(Note note) async {
     final user = supabase.auth.currentUser;
 
     if (user == null) {
-      dev.log("USER NOT LOGGED IN");
+      dev.log("❌ USER NOT LOGGED IN");
       return;
     }
 
@@ -37,18 +35,15 @@ class NoteService {
     };
 
     try {
-      //  THIS FIXES EVERYTHING
+      // 🔥 UPSERT = NO DUPLICATES + ALWAYS UPDATE
       await supabase.from('notes').upsert(
         data,
-        onConflict: 'id', // 🚨 CRITICAL
+        onConflict: 'id',
       );
 
-      _box.put(id, data);
+      dev.log(isNew ? "✅ INSERTED" : "✅ UPDATED");
     } catch (e) {
-      dev.log("SAVE ERROR: $e");
-
-      // offline fallback
-      _box.put(id, data);
+      dev.log("❌ SAVE ERROR: $e");
     }
   }
 
@@ -58,54 +53,51 @@ class NoteService {
   Future<void> deleteNote(String id) async {
     try {
       await supabase.from('notes').delete().eq('id', id);
+      dev.log("🗑️ Deleted note");
     } catch (e) {
-      dev.log("DELETE ERROR: $e");
+      dev.log("❌ DELETE ERROR: $e");
     }
-
-    _box.delete(id);
   }
 
   // =========================
-  // GET NOTES
+  // GET NOTES (PURE SUPABASE)
   // =========================
   Future<List<Note>> getNotes() async {
     final user = supabase.auth.currentUser;
+
+    if (user == null) return [];
 
     try {
       final res = await supabase
           .from('notes')
           .select()
-          .eq('user_id', user!.id)
+          .eq('user_id', user.id)
           .order('updated_at', ascending: false);
 
       final notes =
           (res as List).map((e) => Note.fromMap(e)).toList();
 
-      for (var n in notes) {
-        _box.put(n.id, n.toMap());
-      }
-
       return notes;
     } catch (e) {
-      dev.log("FETCH ERROR: $e");
-
-      final cached = _box.values.toList();
-      return cached
-          .map((e) => Note.fromMap(Map<String, dynamic>.from(e)))
-          .toList();
+      dev.log("❌ FETCH ERROR: $e");
+      return [];
     }
   }
 
   // =========================
-  // REALTIME STREAM
+  // REALTIME STREAM (OPTIONAL)
   // =========================
   Stream<List<Note>> listenToNotes() {
     final user = supabase.auth.currentUser;
 
+    if (user == null) {
+      return const Stream.empty();
+    }
+
     return supabase
         .from('notes')
         .stream(primaryKey: ['id'])
-        .eq('user_id', user!.id)
+        .eq('user_id', user.id)
         .order('updated_at', ascending: false)
         .map((data) =>
             data.map((e) => Note.fromMap(e)).toList());
