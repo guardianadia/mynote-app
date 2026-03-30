@@ -1,6 +1,8 @@
+// lib/screens/edit_note_screen.dart
 import 'package:flutter/material.dart';
-import '../models/note.dart';
-import '../services/note_service.dart';
+import 'package:mynote/models/note.dart';
+import 'package:mynote/services/note_service.dart';
+import 'package:mynote/services/gemini_service.dart'; // ✅ absolute import
 
 class EditNoteScreen extends StatefulWidget {
   final Note? note;
@@ -14,7 +16,6 @@ class EditNoteScreen extends StatefulWidget {
 class _EditNoteScreenState extends State<EditNoteScreen> {
   late final TextEditingController _titleController;
   late final TextEditingController _contentController;
-
   final TextEditingController _folderCtrl = TextEditingController();
   final TextEditingController _tagsCtrl = TextEditingController();
 
@@ -22,6 +23,7 @@ class _EditNoteScreenState extends State<EditNoteScreen> {
 
   String _selectedCategory = 'General';
   bool _isSaving = false;
+  bool _isSummarizing = false;
 
   String _noteId = '';
 
@@ -29,10 +31,8 @@ class _EditNoteScreenState extends State<EditNoteScreen> {
   void initState() {
     super.initState();
 
-    _titleController =
-        TextEditingController(text: widget.note?.title ?? '');
-    _contentController =
-        TextEditingController(text: widget.note?.content ?? '');
+    _titleController = TextEditingController(text: widget.note?.title ?? '');
+    _contentController = TextEditingController(text: widget.note?.content ?? '');
 
     _selectedCategory = widget.note?.category ?? 'General';
     _folderCtrl.text = widget.note?.folder ?? 'General';
@@ -50,7 +50,7 @@ class _EditNoteScreenState extends State<EditNoteScreen> {
   }
 
   // =========================
-  // SAVE (ONLY ONE CALL)
+  // SAVE NOTE
   // =========================
   Future<void> _save() async {
     if (_titleController.text.trim().isEmpty &&
@@ -70,22 +70,74 @@ class _EditNoteScreenState extends State<EditNoteScreen> {
           ? 'General'
           : _folderCtrl.text.trim(),
       category: _selectedCategory,
-      tags: _parseTags(_tagsCtrl.text),
+      tags: _parseTags(_tagsCtrl.text.trim()),
       createdAt: widget.note?.createdAt ?? now,
       updatedAt: now,
     );
 
-    await _noteService.saveNote(note);
+    try {
+      await _noteService.saveNote(note);
 
-    if (_noteId.isEmpty) {
-      _noteId = note.id;
+      if (_noteId.isEmpty) _noteId = note.id;
+
+      if (!mounted) return;
+      Navigator.pop(context); // refresh list
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to save note: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
     }
+  }
 
-    if (!mounted) return;
+  // =========================
+  // SUMMARIZE NOTE
+  // =========================
+  Future<void> _summarizeNote() async {
+    final text = _contentController.text;
+    if (text.trim().isEmpty) return;
 
-    Navigator.pop(context); // 🔥 forces list refresh
+    setState(() => _isSummarizing = true);
 
-    setState(() => _isSaving = false);
+    try {
+      final summary = await GeminiService().summarize(text);
+
+      if (!mounted) return;
+
+      showDialog(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: const Text("Summary"),
+          content: Text(summary),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text("Close"),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+
+      showDialog(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: const Text("Error"),
+          content: Text("Failed to summarize note: $e"),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text("Close"),
+            ),
+          ],
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isSummarizing = false);
+    }
   }
 
   InputDecoration _input(String label) {
@@ -114,12 +166,24 @@ class _EditNoteScreenState extends State<EditNoteScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF2EAFE),
-
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
         title: const Text("Note"),
         actions: [
+          // Summarize Button
+          IconButton(
+            icon: _isSummarizing
+                ? const SizedBox(
+                    height: 18,
+                    width: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.auto_awesome),
+            onPressed: _isSummarizing ? null : _summarizeNote,
+          ),
+
+          // Save Button
           IconButton(
             icon: _isSaving
                 ? const SizedBox(
@@ -132,7 +196,6 @@ class _EditNoteScreenState extends State<EditNoteScreen> {
           ),
         ],
       ),
-
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -141,9 +204,7 @@ class _EditNoteScreenState extends State<EditNoteScreen> {
               controller: _titleController,
               decoration: _input("Title"),
             ),
-
             const SizedBox(height: 12),
-
             Expanded(
               child: TextField(
                 controller: _contentController,
