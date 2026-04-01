@@ -1,6 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 import 'dart:developer' as dev;
+import 'package:hive/hive.dart';
 
 import '../models/note.dart';
 
@@ -8,8 +9,11 @@ class NoteService {
   final supabase = Supabase.instance.client;
   final _uuid = const Uuid();
 
+  // ✅ Hive cache (NEW)
+  final Box _box = Hive.box('notes_cache');
+
   // =========================
-  // SAVE / UPDATE (FINAL CLEAN FIX)
+  // SAVE / UPDATE (NO UI CHANGE)
   // =========================
   Future<void> saveNote(Note note) async {
     final user = supabase.auth.currentUser;
@@ -35,15 +39,22 @@ class NoteService {
     };
 
     try {
-      // 🔥 UPSERT = NO DUPLICATES + ALWAYS UPDATE
+      // 🔥 Cloud first (same as before)
       await supabase.from('notes').upsert(
         data,
         onConflict: 'id',
       );
 
       dev.log(isNew ? "✅ INSERTED" : "✅ UPDATED");
+
+      // ✅ Cache locally
+      _box.put(id, data);
+
     } catch (e) {
-      dev.log("❌ SAVE ERROR: $e");
+      dev.log("⚠️ OFFLINE MODE: saving locally");
+
+      // 🔥 Offline fallback
+      _box.put(id, data);
     }
   }
 
@@ -57,10 +68,13 @@ class NoteService {
     } catch (e) {
       dev.log("❌ DELETE ERROR: $e");
     }
+
+    // ✅ Remove from cache too
+    _box.delete(id);
   }
 
   // =========================
-  // GET NOTES (PURE SUPABASE)
+  // GET NOTES (SMART FETCH)
   // =========================
   Future<List<Note>> getNotes() async {
     final user = supabase.auth.currentUser;
@@ -77,15 +91,28 @@ class NoteService {
       final notes =
           (res as List).map((e) => Note.fromMap(e)).toList();
 
+      // ✅ Sync cache
+      await _box.clear();
+      for (var n in notes) {
+        _box.put(n.id, n.toMap());
+      }
+
       return notes;
+
     } catch (e) {
-      dev.log("❌ FETCH ERROR: $e");
-      return [];
+      dev.log("⚠️ OFFLINE MODE: loading from cache");
+
+      // 🔥 fallback
+      final cached = _box.values.toList();
+
+      return cached
+          .map((e) => Note.fromMap(Map<String, dynamic>.from(e)))
+          .toList();
     }
   }
 
   // =========================
-  // REALTIME STREAM (OPTIONAL)
+  // REALTIME STREAM (UNCHANGED)
   // =========================
   Stream<List<Note>> listenToNotes() {
     final user = supabase.auth.currentUser;

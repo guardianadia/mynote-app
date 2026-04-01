@@ -4,7 +4,7 @@ class AuthService {
   final SupabaseClient _client = Supabase.instance.client;
 
   // =========================
-  // CHECK LOGIN
+  // CHECK LOGIN (OFFLINE SAFE)
   // =========================
   Future<bool> isLoggedIn() async {
     return _client.auth.currentSession != null;
@@ -50,25 +50,34 @@ class AuthService {
   }
 
   // =========================
-  // LOGIN WITH USERNAME
+  // LOGIN WITH USERNAME (FIXED)
   // =========================
   Future<bool> login(String username, String password) async {
-    final result = await _client
-        .from('profiles')
-        .select('recovery_email')
-        .eq('username', username.trim())
-        .maybeSingle();
-
-    if (result == null) return false;
-
-    final email = result['recovery_email'] as String?;
-    if (email == null || email.isEmpty) return false;
-
     try {
+      // 🔥 STEP 1: already logged in (OFFLINE SAFE)
+      final existingSession = _client.auth.currentSession;
+      if (existingSession != null) {
+        return true;
+      }
+
+      // 🔥 STEP 2: fetch email (requires internet)
+      final result = await _client
+          .from('profiles')
+          .select('recovery_email')
+          .eq('username', username.trim())
+          .maybeSingle();
+
+      if (result == null) return false;
+
+      final email = result['recovery_email'] as String?;
+      if (email == null || email.isEmpty) return false;
+
+      // 🔥 STEP 3: login
       await _client.auth.signInWithPassword(
         email: email,
         password: password,
       );
+
       return true;
     } catch (_) {
       return false;
@@ -76,7 +85,7 @@ class AuthService {
   }
 
   // =========================
-  // SEND PASSWORD RESET EMAIL (FIXED )
+  // SEND PASSWORD RESET EMAIL
   // =========================
   Future<void> sendPasswordResetEmail(String email) async {
     await _client.auth.resetPasswordForEmail(

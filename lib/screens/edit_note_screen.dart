@@ -1,8 +1,7 @@
-// lib/screens/edit_note_screen.dart
 import 'package:flutter/material.dart';
 import 'package:mynote/models/note.dart';
 import 'package:mynote/services/note_service.dart';
-import 'package:mynote/services/gemini_service.dart'; // ✅ absolute import
+import 'package:mynote/services/gemini_service.dart';
 
 class EditNoteScreen extends StatefulWidget {
   final Note? note;
@@ -27,6 +26,9 @@ class _EditNoteScreenState extends State<EditNoteScreen> {
 
   String _noteId = '';
 
+  //  NEW item added to track save status
+  String _saveStatus = '';
+
   @override
   void initState() {
     super.initState();
@@ -50,7 +52,7 @@ class _EditNoteScreenState extends State<EditNoteScreen> {
   }
 
   // =========================
-  // SAVE NOTE
+  // SAVE NOTE (UPDATED)
   // =========================
   Future<void> _save() async {
     if (_titleController.text.trim().isEmpty &&
@@ -58,7 +60,10 @@ class _EditNoteScreenState extends State<EditNoteScreen> {
       return;
     }
 
-    setState(() => _isSaving = true);
+    setState(() {
+      _isSaving = true;
+      _saveStatus = 'Saving...';
+    });
 
     final now = DateTime.now();
 
@@ -81,9 +86,22 @@ class _EditNoteScreenState extends State<EditNoteScreen> {
       if (_noteId.isEmpty) _noteId = note.id;
 
       if (!mounted) return;
-      Navigator.pop(context); // refresh list
+
+      setState(() {
+        _saveStatus = 'Saved ✔';
+      });
+
+      // remove after 2 seconds
+      Future.delayed(const Duration(seconds: 2), () {
+        if (!mounted) return;
+        setState(() => _saveStatus = '');
+      });
+
+      Navigator.pop(context);
+
     } catch (e) {
       if (!mounted) return;
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Failed to save note: $e')),
       );
@@ -171,6 +189,21 @@ class _EditNoteScreenState extends State<EditNoteScreen> {
         elevation: 0,
         title: const Text("Note"),
         actions: [
+          // SAVE STATUS TEXT (NEW)
+          if (_saveStatus.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: Center(
+                child: Text(
+                  _saveStatus,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: Colors.green,
+                  ),
+                ),
+              ),
+            ),
+
           // Summarize Button
           IconButton(
             icon: _isSummarizing
