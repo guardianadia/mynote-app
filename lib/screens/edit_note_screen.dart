@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:mynote/models/note.dart';
 import 'package:mynote/services/note_service.dart';
 import 'package:mynote/services/gemini_service.dart';
+import 'package:speech_to_text/speech_recognition_result.dart';
+import 'package:speech_to_text/speech_to_text.dart';
 
 class EditNoteScreen extends StatefulWidget {
   final Note? note;
@@ -25,9 +27,13 @@ class _EditNoteScreenState extends State<EditNoteScreen> {
   bool _isSummarizing = false;
 
   String _noteId = '';
-
-  //  NEW item added to track save status
   String _saveStatus = '';
+
+  final SpeechToText _speechToText = SpeechToText();
+  bool _speechEnabled = false;
+  bool _isListening = false;
+  String _speechError = '';
+  String _contentBeforeListening = '';
 
   @override
   void initState() {
@@ -41,6 +47,84 @@ class _EditNoteScreenState extends State<EditNoteScreen> {
     _tagsCtrl.text = (widget.note?.tags ?? []).join(', ');
 
     _noteId = widget.note?.id ?? '';
+
+    _initSpeech();
+  }
+
+  Future<void> _initSpeech() async {
+    _speechEnabled = await _speechToText.initialize(
+      onStatus: _onSpeechStatus,
+      onError: (error) {
+        if (!mounted) return;
+        setState(() {
+          _speechError = error.errorMsg;
+          _isListening = false;
+        });
+      },
+    );
+
+    if (!mounted) return;
+    setState(() {});
+  }
+
+  void _onSpeechStatus(String status) {
+    if (!mounted) return;
+    setState(() {
+      _isListening = _speechToText.isListening;
+    });
+  }
+
+  Future<void> _startListening() async {
+    if (!_speechEnabled) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Speech recognition is not available on this device.'),
+        ),
+      );
+      return;
+    }
+
+    _speechError = '';
+    _contentBeforeListening = _contentController.text;
+
+    await _speechToText.listen(
+      onResult: _onSpeechResult,
+      listenFor: const Duration(minutes: 4),
+      pauseFor: const Duration(seconds: 25),
+      partialResults: true,
+      cancelOnError: true,
+      listenMode: ListenMode.dictation,
+    );
+
+    if (!mounted) return;
+    setState(() {
+      _isListening = true;
+    });
+  }
+
+  Future<void> _stopListening() async {
+    await _speechToText.stop();
+
+    if (!mounted) return;
+    setState(() {
+      _isListening = false;
+    });
+  }
+
+  void _onSpeechResult(SpeechRecognitionResult result) {
+    final spokenText = result.recognizedWords;
+
+    setState(() {
+      final hasExistingText = _contentBeforeListening.trim().isNotEmpty;
+      final separator = hasExistingText ? '\n' : '';
+
+      _contentController.text =
+          '$_contentBeforeListening$separator$spokenText';
+
+      _contentController.selection = TextSelection.fromPosition(
+        TextPosition(offset: _contentController.text.length),
+      );
+    });
   }
 
   List<String> _parseTags(String raw) {
@@ -51,9 +135,6 @@ class _EditNoteScreenState extends State<EditNoteScreen> {
         .toList();
   }
 
-  // =========================
-  // SAVE NOTE (UPDATED)
-  // =========================
   Future<void> _save() async {
     if (_titleController.text.trim().isEmpty &&
         _contentController.text.trim().isEmpty) {
@@ -91,14 +172,12 @@ class _EditNoteScreenState extends State<EditNoteScreen> {
         _saveStatus = 'Saved ✔';
       });
 
-      // remove after 2 seconds
       Future.delayed(const Duration(seconds: 2), () {
         if (!mounted) return;
         setState(() => _saveStatus = '');
       });
 
       Navigator.pop(context);
-
     } catch (e) {
       if (!mounted) return;
 
@@ -110,9 +189,6 @@ class _EditNoteScreenState extends State<EditNoteScreen> {
     }
   }
 
-  // =========================
-  // SUMMARIZE NOTE
-  // =========================
   Future<void> _summarizeNote() async {
     final text = _contentController.text;
     if (text.trim().isEmpty) return;
@@ -189,7 +265,6 @@ class _EditNoteScreenState extends State<EditNoteScreen> {
         elevation: 0,
         title: const Text("Note"),
         actions: [
-          // SAVE STATUS TEXT (NEW)
           if (_saveStatus.isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(right: 8),
@@ -204,7 +279,17 @@ class _EditNoteScreenState extends State<EditNoteScreen> {
               ),
             ),
 
-          // Summarize Button
+          IconButton(
+            tooltip: _isListening ? 'Stop voice input' : 'Start voice input',
+            icon: Icon(
+              _isListening ? Icons.mic : Icons.mic_none,
+              color: _isListening ? Colors.red : null,
+            ),
+            onPressed: !_speechEnabled
+                ? _initSpeech
+                : (_isListening ? _stopListening : _startListening),
+          ),
+
           IconButton(
             icon: _isSummarizing
                 ? const SizedBox(
@@ -216,7 +301,6 @@ class _EditNoteScreenState extends State<EditNoteScreen> {
             onPressed: _isSummarizing ? null : _summarizeNote,
           ),
 
-          // Save Button
           IconButton(
             icon: _isSaving
                 ? const SizedBox(
@@ -233,6 +317,52 @@ class _EditNoteScreenState extends State<EditNoteScreen> {
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
+            if (_isListening)
+              Container(
+                width: double.infinity,
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.red.shade50,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.red.shade200),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.mic, color: Colors.red),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Listening... speak now',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+            if (_speechError.isNotEmpty)
+              Container(
+                width: double.infinity,
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.orange.shade50,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.orange.shade200),
+                ),
+                child: Text(
+                  'Voice input error: $_speechError',
+                  style: const TextStyle(fontSize: 13),
+                ),
+              ),
+
             TextField(
               controller: _titleController,
               decoration: _input("Title"),
