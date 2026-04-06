@@ -17,18 +17,27 @@ class EditNoteScreen extends StatefulWidget {
 class _EditNoteScreenState extends State<EditNoteScreen> {
   late final TextEditingController _titleController;
   late final TextEditingController _contentController;
-  final TextEditingController _folderCtrl = TextEditingController();
   final TextEditingController _tagsCtrl = TextEditingController();
 
   final _noteService = NoteService();
 
   String _selectedCategory = 'General';
+  final List<String> _categories = [
+    'General',
+    'School',
+    'Work',
+    'Personal',
+    'Ideas',
+    'Other'
+  ];
+
+  List<String> _tagList = [];
   bool _isSaving = false;
   bool _isSummarizing = false;
-
   String _noteId = '';
   String _saveStatus = '';
 
+  // Speech to text
   final SpeechToText _speechToText = SpeechToText();
   bool _speechEnabled = false;
   bool _isListening = false;
@@ -41,11 +50,9 @@ class _EditNoteScreenState extends State<EditNoteScreen> {
 
     _titleController = TextEditingController(text: widget.note?.title ?? '');
     _contentController = TextEditingController(text: widget.note?.content ?? '');
-
     _selectedCategory = widget.note?.category ?? 'General';
-    _folderCtrl.text = widget.note?.folder ?? 'General';
-    _tagsCtrl.text = (widget.note?.tags ?? []).join(', ');
-
+    _tagList = widget.note?.tags ?? [];
+    _tagsCtrl.text = _tagList.join(', ');
     _noteId = widget.note?.id ?? '';
 
     _initSpeech();
@@ -77,9 +84,7 @@ class _EditNoteScreenState extends State<EditNoteScreen> {
   Future<void> _startListening() async {
     if (!_speechEnabled) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Speech recognition is not available on this device.'),
-        ),
+        const SnackBar(content: Text('Speech recognition not available.')),
       );
       return;
     }
@@ -97,49 +102,46 @@ class _EditNoteScreenState extends State<EditNoteScreen> {
     );
 
     if (!mounted) return;
-    setState(() {
-      _isListening = true;
-    });
+    setState(() => _isListening = true);
   }
 
   Future<void> _stopListening() async {
     await _speechToText.stop();
-
     if (!mounted) return;
-    setState(() {
-      _isListening = false;
-    });
+    setState(() => _isListening = false);
   }
 
   void _onSpeechResult(SpeechRecognitionResult result) {
     final spokenText = result.recognizedWords;
-
     setState(() {
       final hasExistingText = _contentBeforeListening.trim().isNotEmpty;
       final separator = hasExistingText ? '\n' : '';
-
-      _contentController.text =
-          '$_contentBeforeListening$separator$spokenText';
-
-      _contentController.selection = TextSelection.fromPosition(
-        TextPosition(offset: _contentController.text.length),
-      );
+      _contentController.text = '$_contentBeforeListening$separator$spokenText';
+      _contentController.selection =
+          TextSelection.fromPosition(TextPosition(offset: _contentController.text.length));
     });
   }
 
-  List<String> _parseTags(String raw) {
-    return raw
-        .split(',')
-        .map((s) => s.trim())
-        .where((s) => s.isNotEmpty)
-        .toList();
+  void _addTag() {
+    final tag = _tagsCtrl.text.trim();
+    if (tag.isEmpty) return;
+    if (!_tagList.contains(tag)) {
+      setState(() {
+        _tagList.add(tag);
+      });
+    }
+    _tagsCtrl.clear();
+  }
+
+  void _removeTag(String tag) {
+    setState(() {
+      _tagList.remove(tag);
+    });
   }
 
   Future<void> _save() async {
     if (_titleController.text.trim().isEmpty &&
-        _contentController.text.trim().isEmpty) {
-      return;
-    }
+        _contentController.text.trim().isEmpty) return;
 
     setState(() {
       _isSaving = true;
@@ -152,11 +154,9 @@ class _EditNoteScreenState extends State<EditNoteScreen> {
       id: _noteId,
       title: _titleController.text.trim(),
       content: _contentController.text.trim(),
-      folder: _folderCtrl.text.trim().isEmpty
-          ? 'General'
-          : _folderCtrl.text.trim(),
+      folder: widget.note?.folder ?? 'General', // KEEP folder
       category: _selectedCategory,
-      tags: _parseTags(_tagsCtrl.text.trim()),
+      tags: _tagList,
       createdAt: widget.note?.createdAt ?? now,
       updatedAt: now,
     );
@@ -167,10 +167,7 @@ class _EditNoteScreenState extends State<EditNoteScreen> {
       if (_noteId.isEmpty) _noteId = note.id;
 
       if (!mounted) return;
-
-      setState(() {
-        _saveStatus = 'Saved ✔';
-      });
+      setState(() => _saveStatus = 'Saved ✔');
 
       Future.delayed(const Duration(seconds: 2), () {
         if (!mounted) return;
@@ -180,10 +177,8 @@ class _EditNoteScreenState extends State<EditNoteScreen> {
       Navigator.pop(context);
     } catch (e) {
       if (!mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to save note: $e')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Failed to save note: $e')));
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }
@@ -199,28 +194,11 @@ class _EditNoteScreenState extends State<EditNoteScreen> {
       final summary = await GeminiService().summarize(text);
 
       if (!mounted) return;
-
       showDialog(
         context: context,
         builder: (_) => AlertDialog(
           title: const Text("Summary"),
           content: Text(summary),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text("Close"),
-            ),
-          ],
-        ),
-      );
-    } catch (e) {
-      if (!mounted) return;
-
-      showDialog(
-        context: context,
-        builder: (_) => AlertDialog(
-          title: const Text("Error"),
-          content: Text("Failed to summarize note: $e"),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
@@ -251,7 +229,6 @@ class _EditNoteScreenState extends State<EditNoteScreen> {
   void dispose() {
     _titleController.dispose();
     _contentController.dispose();
-    _folderCtrl.dispose();
     _tagsCtrl.dispose();
     super.dispose();
   }
@@ -271,10 +248,7 @@ class _EditNoteScreenState extends State<EditNoteScreen> {
               child: Center(
                 child: Text(
                   _saveStatus,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    color: Colors.green,
-                  ),
+                  style: const TextStyle(fontSize: 14, color: Colors.green),
                 ),
               ),
             ),
@@ -292,22 +266,14 @@ class _EditNoteScreenState extends State<EditNoteScreen> {
 
           IconButton(
             icon: _isSummarizing
-                ? const SizedBox(
-                    height: 18,
-                    width: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
+                ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2))
                 : const Icon(Icons.auto_awesome),
             onPressed: _isSummarizing ? null : _summarizeNote,
           ),
 
           IconButton(
             icon: _isSaving
-                ? const SizedBox(
-                    height: 18,
-                    width: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
+                ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2))
                 : const Icon(Icons.save),
             onPressed: _isSaving ? null : _save,
           ),
@@ -317,57 +283,44 @@ class _EditNoteScreenState extends State<EditNoteScreen> {
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            if (_isListening)
-              Container(
-                width: double.infinity,
-                margin: const EdgeInsets.only(bottom: 12),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 10,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.red.shade50,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.red.shade200),
-                ),
-                child: const Row(
-                  children: [
-                    Icon(Icons.mic, color: Colors.red),
-                    SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'Listening... speak now',
-                        style: TextStyle(fontWeight: FontWeight.w600),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-            if (_speechError.isNotEmpty)
-              Container(
-                width: double.infinity,
-                margin: const EdgeInsets.only(bottom: 12),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 10,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.orange.shade50,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.orange.shade200),
-                ),
-                child: Text(
-                  'Voice input error: $_speechError',
-                  style: const TextStyle(fontSize: 13),
-                ),
-              ),
-
-            TextField(
-              controller: _titleController,
-              decoration: _input("Title"),
-            ),
+            TextField(controller: _titleController, decoration: _input("Title")),
             const SizedBox(height: 12),
+
+            DropdownButtonFormField<String>(
+              value: _selectedCategory,
+              decoration: _input("Category"),
+              items: _categories
+                  .map((c) => DropdownMenuItem(value: c, child: Text(c)))
+                  .toList(),
+              onChanged: (value) {
+                setState(() {
+                  _selectedCategory = value!;
+                });
+              },
+            ),
+
+            const SizedBox(height: 12),
+
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(controller: _tagsCtrl, decoration: _input("Add tag")),
+                ),
+                IconButton(icon: const Icon(Icons.add), onPressed: _addTag),
+              ],
+            ),
+
+            const SizedBox(height: 10),
+
+            Wrap(
+              spacing: 6,
+              children: _tagList.map((tag) {
+                return Chip(label: Text(tag), onDeleted: () => _removeTag(tag));
+              }).toList(),
+            ),
+
+            const SizedBox(height: 12),
+
             Expanded(
               child: TextField(
                 controller: _contentController,
