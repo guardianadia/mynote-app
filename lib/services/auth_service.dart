@@ -54,13 +54,13 @@ class AuthService {
   // =========================
   Future<bool> login(String username, String password) async {
     try {
-      // 🔥 STEP 1: already logged in (OFFLINE SAFE)
+      // STEP 1: already logged in (OFFLINE SAFE)
       final existingSession = _client.auth.currentSession;
       if (existingSession != null) {
         return true;
       }
 
-      // 🔥 STEP 2: fetch email (requires internet)
+      //  STEP 2: fetch email (requires internet)
       final result = await _client
           .from('profiles')
           .select('recovery_email')
@@ -72,7 +72,7 @@ class AuthService {
       final email = result['recovery_email'] as String?;
       if (email == null || email.isEmpty) return false;
 
-      // 🔥 STEP 3: login
+      //  STEP 3: login
       await _client.auth.signInWithPassword(
         email: email,
         password: password,
@@ -90,7 +90,7 @@ class AuthService {
   Future<void> sendPasswordResetEmail(String email) async {
     await _client.auth.resetPasswordForEmail(
       email.trim().toLowerCase(),
-      redirectTo: 'https://www.mynoteapp.io/reset',
+      redirectTo: "https://mynote-reset-page.vercel.app",
     );
   }
 

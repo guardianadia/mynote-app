@@ -16,16 +16,16 @@ class MyNoteApp extends StatelessWidget {
       theme: ThemeData(
         useMaterial3: true,
 
-        //  BACKGROUND
+        // BACKGROUND
         scaffoldBackgroundColor: bg,
 
-        //  COLOR SCHEME
+        // COLOR SCHEME
         colorScheme: ColorScheme.fromSeed(
           seedColor: primary,
           brightness: Brightness.light,
         ),
 
-        //  TEXT STYLE
+        // TEXT STYLE
         textTheme: const TextTheme(
           titleLarge: TextStyle(
             fontSize: 22,
@@ -38,7 +38,7 @@ class MyNoteApp extends StatelessWidget {
           ),
         ),
 
-        //  APP BAR STYLE
+        // APP BAR STYLE
         appBarTheme: const AppBarTheme(
           backgroundColor: Colors.transparent,
           elevation: 0,
@@ -51,7 +51,7 @@ class MyNoteApp extends StatelessWidget {
           ),
         ),
 
-        //  BUTTON STYLE
+        // BUTTON STYLE
         elevatedButtonTheme: ElevatedButtonThemeData(
           style: ElevatedButton.styleFrom(
             backgroundColor: primary,
@@ -63,41 +63,40 @@ class MyNoteApp extends StatelessWidget {
           ),
         ),
 
-        //  INPUT STYLE
+        // INPUT STYLE
         inputDecorationTheme: InputDecorationTheme(
           filled: true,
           fillColor: Colors.white,
           hintStyle: const TextStyle(color: Colors.grey),
-
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(14),
             borderSide: BorderSide.none,
           ),
-
           contentPadding: const EdgeInsets.symmetric(
             horizontal: 16,
             vertical: 14,
           ),
         ),
 
-        //  FLOATING BUTTON
+        // FLOATING BUTTON
         floatingActionButtonTheme: const FloatingActionButtonThemeData(
           backgroundColor: primary,
           foregroundColor: Colors.white,
           elevation: 6,
         ),
 
-        //  CARD STYLE (FINAL FIX)
+        // CARD STYLE
         cardTheme: CardThemeData(
           color: Colors.white,
           elevation: 4,
-          shadowColor: Colors.black.withValues(alpha: 0.05), // ✅ no warning
+          shadowColor: Colors.black.withValues(alpha: 0.05),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(18),
           ),
         ),
       ),
 
+      // 🔥 KEEP THIS (Splash handles reset token)
       home: const SplashScreen(),
     );
   }

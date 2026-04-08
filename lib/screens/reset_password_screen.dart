@@ -1,9 +1,8 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class ResetPasswordScreen extends StatefulWidget {
-  final String token;
+  final String token; // kept (not used, but no UI/structure change)
 
   const ResetPasswordScreen({super.key, required this.token});
 
@@ -19,7 +18,9 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
   String? _msg;
   bool _isLoading = false;
 
-  //  PASSWORD VALIDATION
+  // =========================
+  // PASSWORD VALIDATION
+  // =========================
   bool isValidPassword(String password) {
     final regex = RegExp(
       r'^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[@$!%*?&]).{8,}$',
@@ -27,24 +28,20 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
     return regex.hasMatch(password);
   }
 
-  //  RESET PASSWORD FUNCTION
+  // =========================
+  // RESET PASSWORD FUNCTION
+  // =========================
   Future<void> _resetPassword() async {
     final password = _passwordCtrl.text.trim();
     final confirm = _confirmCtrl.text.trim();
 
-    // ❗ token check
-    if (widget.token.isEmpty) {
-      setState(() => _error = "Invalid or missing reset token");
-      return;
-    }
-
-    // ❗ match check
+    // MATCH CHECK
     if (password != confirm) {
       setState(() => _error = "Passwords do not match");
       return;
     }
 
-    // ❗ strength check
+    // STRENGTH CHECK
     if (!isValidPassword(password)) {
       setState(() {
         _error =
@@ -60,28 +57,10 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
     });
 
     try {
-      final url = Uri.parse(
-        'https://loaallkwmwgqlxhndwrf.supabase.co/functions/v1/update-password',
+      // 🔥 SUPABASE PASSWORD UPDATE (FINAL FIX)
+      await Supabase.instance.client.auth.updateUser(
+        UserAttributes(password: password),
       );
-
-      final response = await http.post(
-        url,
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxvYWFsbGt3bXdncWx4aG5kd3JmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQwNTM2MDgsImV4cCI6MjA4OTYyOTYwOH0.75Vf0xOH4eHYufPZm24U5M0buXKaxkzlPSKBCIlhvgk",
-          "apikey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxvYWFsbGt3bXdncWx4aG5kd3JmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQwNTM2MDgsImV4cCI6MjA4OTYyOTYwOH0.75Vf0xOH4eHYufPZm24U5M0buXKaxkzlPSKBCIlhvgk",
-        },
-        body: jsonEncode({
-          "token": widget.token,
-          "password": password,
-        }),
-      );
-
-      final data = jsonDecode(response.body);
-
-      if (response.statusCode != 200) {
-        throw Exception(data["error"] ?? "Unknown error");
-      }
 
       setState(() {
         _msg = "Password updated successfully!";
@@ -90,7 +69,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
       // AUTO REDIRECT AFTER SUCCESS
       Future.delayed(const Duration(seconds: 2), () {
         if (mounted) {
-          Navigator.pop(context); // back to login
+          Navigator.pop(context);
         }
       });
 
