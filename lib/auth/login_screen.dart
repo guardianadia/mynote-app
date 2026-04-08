@@ -107,16 +107,12 @@ class _LoginScreenState extends State<LoginScreen> {
               children: [
                 const SizedBox(height: 20),
 
-                //  TITLE
-                const Text(
-                  'MyNote',
-                  style: TextStyle(
-                    fontSize: 34,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF5B2C83),
-                    letterSpacing: 1,
-                  ),
-                ),
+              
+                // LOGO
+                  Image.asset(
+                  'assets/images/logo.png',
+                  height: 120,
+                ), 
 
                 const SizedBox(height: 30),
 
