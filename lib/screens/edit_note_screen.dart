@@ -37,19 +37,21 @@ class _EditNoteScreenState extends State<EditNoteScreen> {
   String _noteId = '';
   String _saveStatus = '';
 
-  // Speech to text
+  // 🎤 Speech
   final SpeechToText _speechToText = SpeechToText();
   bool _speechEnabled = false;
   bool _isListening = false;
-  String _speechError = '';
+  String? _speechError;
   String _contentBeforeListening = '';
 
   @override
   void initState() {
     super.initState();
 
-    _titleController = TextEditingController(text: widget.note?.title ?? '');
-    _contentController = TextEditingController(text: widget.note?.content ?? '');
+    _titleController =
+        TextEditingController(text: widget.note?.title ?? '');
+    _contentController =
+        TextEditingController(text: widget.note?.content ?? '');
     _selectedCategory = widget.note?.category ?? 'General';
     _tagList = widget.note?.tags ?? [];
     _tagsCtrl.text = _tagList.join(', ');
@@ -84,21 +86,18 @@ class _EditNoteScreenState extends State<EditNoteScreen> {
   Future<void> _startListening() async {
     if (!_speechEnabled) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Speech recognition not available.')),
+        const SnackBar(content: Text('Speech not available')),
       );
       return;
     }
 
-    _speechError = '';
+    _speechError = null;
     _contentBeforeListening = _contentController.text;
 
     await _speechToText.listen(
       onResult: _onSpeechResult,
       listenFor: const Duration(minutes: 4),
       pauseFor: const Duration(seconds: 25),
-      partialResults: true,
-      cancelOnError: true,
-      listenMode: ListenMode.dictation,
     );
 
     if (!mounted) return;
@@ -113,35 +112,40 @@ class _EditNoteScreenState extends State<EditNoteScreen> {
 
   void _onSpeechResult(SpeechRecognitionResult result) {
     final spokenText = result.recognizedWords;
+
     setState(() {
-      final hasExistingText = _contentBeforeListening.trim().isNotEmpty;
-      final separator = hasExistingText ? '\n' : '';
-      _contentController.text = '$_contentBeforeListening$separator$spokenText';
-      _contentController.selection =
-          TextSelection.fromPosition(TextPosition(offset: _contentController.text.length));
+      final hasText = _contentBeforeListening.trim().isNotEmpty;
+      final separator = hasText ? '\n' : '';
+
+      _contentController.text =
+          '$_contentBeforeListening$separator$spokenText';
+
+      _contentController.selection = TextSelection.fromPosition(
+        TextPosition(offset: _contentController.text.length),
+      );
     });
   }
 
   void _addTag() {
     final tag = _tagsCtrl.text.trim();
     if (tag.isEmpty) return;
+
     if (!_tagList.contains(tag)) {
-      setState(() {
-        _tagList.add(tag);
-      });
+      setState(() => _tagList.add(tag));
     }
+
     _tagsCtrl.clear();
   }
 
   void _removeTag(String tag) {
-    setState(() {
-      _tagList.remove(tag);
-    });
+    setState(() => _tagList.remove(tag));
   }
 
   Future<void> _save() async {
     if (_titleController.text.trim().isEmpty &&
-        _contentController.text.trim().isEmpty) return;
+        _contentController.text.trim().isEmpty) {
+      return;
+    }
 
     setState(() {
       _isSaving = true;
@@ -154,7 +158,7 @@ class _EditNoteScreenState extends State<EditNoteScreen> {
       id: _noteId,
       title: _titleController.text.trim(),
       content: _contentController.text.trim(),
-      folder: widget.note?.folder ?? 'General', // KEEP folder
+      folder: widget.note?.folder ?? 'General',
       category: _selectedCategory,
       tags: _tagList,
       createdAt: widget.note?.createdAt ?? now,
@@ -164,9 +168,12 @@ class _EditNoteScreenState extends State<EditNoteScreen> {
     try {
       await _noteService.saveNote(note);
 
-      if (_noteId.isEmpty) _noteId = note.id;
+      if (_noteId.isEmpty) {
+        _noteId = note.id;
+      }
 
       if (!mounted) return;
+
       setState(() => _saveStatus = 'Saved ✔');
 
       Future.delayed(const Duration(seconds: 2), () {
@@ -177,8 +184,9 @@ class _EditNoteScreenState extends State<EditNoteScreen> {
       Navigator.pop(context);
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Failed to save note: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error saving note: $e')),
+      );
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }
@@ -194,6 +202,7 @@ class _EditNoteScreenState extends State<EditNoteScreen> {
       final summary = await GeminiService().summarize(text);
 
       if (!mounted) return;
+
       showDialog(
         context: context,
         builder: (_) => AlertDialog(
@@ -217,7 +226,6 @@ class _EditNoteScreenState extends State<EditNoteScreen> {
       labelText: label,
       filled: true,
       fillColor: Colors.white,
-      alignLabelWithHint: true,
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(16),
         borderSide: BorderSide.none,
@@ -248,13 +256,13 @@ class _EditNoteScreenState extends State<EditNoteScreen> {
               child: Center(
                 child: Text(
                   _saveStatus,
-                  style: const TextStyle(fontSize: 14, color: Colors.green),
+                  style: const TextStyle(color: Colors.green),
                 ),
               ),
             ),
 
+          // 🎤 Mic
           IconButton(
-            tooltip: _isListening ? 'Stop voice input' : 'Start voice input',
             icon: Icon(
               _isListening ? Icons.mic : Icons.mic_none,
               color: _isListening ? Colors.red : null,
@@ -264,16 +272,26 @@ class _EditNoteScreenState extends State<EditNoteScreen> {
                 : (_isListening ? _stopListening : _startListening),
           ),
 
+          // ✨ AI
           IconButton(
             icon: _isSummarizing
-                ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                ? const SizedBox(
+                    height: 18,
+                    width: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
                 : const Icon(Icons.auto_awesome),
             onPressed: _isSummarizing ? null : _summarizeNote,
           ),
 
+          // 💾 Save
           IconButton(
             icon: _isSaving
-                ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                ? const SizedBox(
+                    height: 18,
+                    width: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
                 : const Icon(Icons.save),
             onPressed: _isSaving ? null : _save,
           ),
@@ -283,19 +301,22 @@ class _EditNoteScreenState extends State<EditNoteScreen> {
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            TextField(controller: _titleController, decoration: _input("Title")),
+            TextField(
+              controller: _titleController,
+              decoration: _input("Title"),
+            ),
+
             const SizedBox(height: 12),
 
             DropdownButtonFormField<String>(
-              value: _selectedCategory,
+              initialValue: _selectedCategory,
               decoration: _input("Category"),
               items: _categories
-                  .map((c) => DropdownMenuItem(value: c, child: Text(c)))
+                  .map((c) =>
+                      DropdownMenuItem(value: c, child: Text(c)))
                   .toList(),
               onChanged: (value) {
-                setState(() {
-                  _selectedCategory = value!;
-                });
+                setState(() => _selectedCategory = value!);
               },
             ),
 
@@ -304,18 +325,25 @@ class _EditNoteScreenState extends State<EditNoteScreen> {
             Row(
               children: [
                 Expanded(
-                  child: TextField(controller: _tagsCtrl, decoration: _input("Add tag")),
+                  child: TextField(
+                    controller: _tagsCtrl,
+                    decoration: _input("Add tag"),
+                  ),
                 ),
-                IconButton(icon: const Icon(Icons.add), onPressed: _addTag),
+                IconButton(
+                  icon: const Icon(Icons.add),
+                  onPressed: _addTag,
+                ),
               ],
             ),
-
-            const SizedBox(height: 10),
 
             Wrap(
               spacing: 6,
               children: _tagList.map((tag) {
-                return Chip(label: Text(tag), onDeleted: () => _removeTag(tag));
+                return Chip(
+                  label: Text(tag),
+                  onDeleted: () => _removeTag(tag),
+                );
               }).toList(),
             ),
 
@@ -330,6 +358,15 @@ class _EditNoteScreenState extends State<EditNoteScreen> {
                 decoration: _input("Start typing your note..."),
               ),
             ),
+
+            if (_speechError != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(
+                  _speechError!,
+                  style: const TextStyle(color: Colors.red),
+                ),
+              ),
           ],
         ),
       ),
