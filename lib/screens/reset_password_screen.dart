@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class ResetPasswordScreen extends StatefulWidget {
-  final String token; // kept (not used, but no UI/structure change)
+  final String token;
 
   const ResetPasswordScreen({super.key, required this.token});
 
@@ -35,17 +35,22 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
     final password = _passwordCtrl.text.trim();
     final confirm = _confirmCtrl.text.trim();
 
-    // MATCH CHECK
     if (password != confirm) {
       setState(() => _error = "Passwords do not match");
       return;
     }
 
-    // STRENGTH CHECK
     if (!isValidPassword(password)) {
       setState(() {
         _error =
             "Password must be 8+ chars, include uppercase, lowercase, number, and symbol.";
+      });
+      return;
+    }
+
+    if (widget.token.isEmpty) {
+      setState(() {
+        _error = "Invalid reset link.";
       });
       return;
     }
@@ -57,20 +62,26 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
     });
 
     try {
-      // 🔥 SUPABASE PASSWORD UPDATE (FINAL FIX)
-      await Supabase.instance.client.auth.updateUser(
-        UserAttributes(password: password),
+      // 🔥 CALL EDGE FUNCTION
+      final response = await Supabase.instance.client.functions.invoke(
+        'update-password',
+        body: {
+          'token': widget.token,
+          'password': password,
+        },
       );
+
+      if (response.status != 200) {
+        throw Exception(response.data.toString());
+      }
 
       setState(() {
         _msg = "Password updated successfully!";
       });
 
-      // AUTO REDIRECT AFTER SUCCESS
+      // Go back after success
       Future.delayed(const Duration(seconds: 2), () {
-        if (mounted) {
-          Navigator.pop(context);
-        }
+        if (mounted) Navigator.pop(context);
       });
 
     } catch (e) {

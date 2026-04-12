@@ -4,7 +4,7 @@ class AuthService {
   final SupabaseClient _client = Supabase.instance.client;
 
   // =========================
-  // CHECK LOGIN (OFFLINE SAFE)
+  // CHECK LOGIN
   // =========================
   Future<bool> isLoggedIn() async {
     return _client.auth.currentSession != null;
@@ -36,7 +36,7 @@ class AuthService {
 
     final user = response.user;
     if (user == null) {
-      throw Exception('Signup failed. No user returned.');
+      throw Exception('Signup failed.');
     }
 
     await _client.from('profiles').insert({
@@ -44,23 +44,17 @@ class AuthService {
       'username': username.trim(),
       'recovery_email': email,
       'security_questions': securityQuestions,
-      'security_answers':
-          securityAnswers.map((a) => a.toLowerCase().trim()).toList(),
+      'security_answers': securityAnswers
+          .map((a) => a.toLowerCase().trim())
+          .toList(),
     });
   }
 
   // =========================
-  // LOGIN WITH USERNAME (FIXED)
+  // LOGIN
   // =========================
   Future<bool> login(String username, String password) async {
     try {
-      // STEP 1: already logged in (OFFLINE SAFE)
-      final existingSession = _client.auth.currentSession;
-      if (existingSession != null) {
-        return true;
-      }
-
-      //  STEP 2: fetch email (requires internet)
       final result = await _client
           .from('profiles')
           .select('recovery_email')
@@ -70,13 +64,9 @@ class AuthService {
       if (result == null) return false;
 
       final email = result['recovery_email'] as String?;
-      if (email == null || email.isEmpty) return false;
+      if (email == null) return false;
 
-      //  STEP 3: login
-      await _client.auth.signInWithPassword(
-        email: email,
-        password: password,
-      );
+      await _client.auth.signInWithPassword(email: email, password: password);
 
       return true;
     } catch (_) {
@@ -85,13 +75,20 @@ class AuthService {
   }
 
   // =========================
-  // SEND PASSWORD RESET EMAIL
+  // 🔥 FIXED PASSWORD RESET EMAIL
   // =========================
   Future<void> sendPasswordResetEmail(String email) async {
-    await _client.auth.resetPasswordForEmail(
-      email.trim().toLowerCase(),
-      redirectTo: "https://mynote-reset-page.vercel.app",
+    final cleanEmail = email.trim().toLowerCase();
+
+    final response = await _client.functions.invoke(
+      'send-reset-email',
+      body: {'email': cleanEmail},
     );
+
+    // ✅ NEW WAY TO HANDLE ERRORS
+    if (response.status != 200) {
+      throw Exception(response.data);
+    }
   }
 
   // =========================
@@ -124,24 +121,23 @@ class AuthService {
   }
 
   // =========================
-  // UPDATE EMAIL
+  // UPDATE RECOVERY EMAIL
   // =========================
   Future<void> updateRecoveryEmail(String email) async {
     final user = _client.auth.currentUser;
     if (user == null) return;
 
-    await _client.from('profiles').update({
-      'recovery_email': email.trim().toLowerCase(),
-    }).eq('id', user.id);
+    await _client
+        .from('profiles')
+        .update({'recovery_email': email.trim().toLowerCase()})
+        .eq('id', user.id);
   }
 
   // =========================
-  // UPDATE PASSWORD
+  // UPDATE PASSWORD (LOGGED IN USER)
   // =========================
   Future<void> updatePassword(String newPassword) async {
-    await _client.auth.updateUser(
-      UserAttributes(password: newPassword),
-    );
+    await _client.auth.updateUser(UserAttributes(password: newPassword));
   }
 
   // =========================
@@ -178,8 +174,7 @@ class AuthService {
     if (result == null) return false;
 
     final stored = List<String>.from(result['security_answers'] ?? []);
-    final input =
-        answers.map((a) => a.toLowerCase().trim()).toList();
+    final input = answers.map((a) => a.toLowerCase().trim()).toList();
 
     if (stored.length != input.length) return false;
 

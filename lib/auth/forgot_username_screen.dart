@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import '../services/auth_service.dart';
 
 class ForgotUsernameScreen extends StatefulWidget {
   const ForgotUsernameScreen({super.key});
@@ -11,12 +10,14 @@ class ForgotUsernameScreen extends StatefulWidget {
 }
 
 class _ForgotUsernameScreenState extends State<ForgotUsernameScreen> {
-  final AuthService _auth = AuthService();
   final _emailCtrl = TextEditingController();
 
   bool _isLoading = false;
   String? _message;
   String? _error;
+
+  // 🔥 PUT YOUR ANON KEY HERE
+  final String anonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxvYWFsbGt3bXdncWx4aG5kd3JmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQwNTM2MDgsImV4cCI6MjA4OTYyOTYwOH0.75Vf0xOH4eHYufPZm24U5M0buXKaxkzlPSKBCIlhvgk";
 
   @override
   void dispose() {
@@ -42,43 +43,36 @@ class _ForgotUsernameScreenState extends State<ForgotUsernameScreen> {
     });
 
     try {
-      //  STEP 1: Get username from DB
-      final username = await _auth.recoverUsernameByEmail(email);
-
-      if (username == null || username.isEmpty) {
-        setState(() {
-          _error = 'No account found with that email.';
-        });
-        return;
-      }
-
-      //  STEP 2: CALL SUPABASE FUNCTION (SEND EMAIL)
-      await http.post(
-        Uri.parse("https://loaallkwmwgqlxhndwrf.supabase.co/functions/v1/send-username"),
+      final response = await http.post(
+        Uri.parse(
+            "https://loaallkwmwgqlxhndwrf.supabase.co/functions/v1/send-username"),
         headers: {
           "Content-Type": "application/json",
-          "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxvYWFsbGt3bXdncWx4aG5kd3JmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQwNTM2MDgsImV4cCI6MjA4OTYyOTYwOH0.75Vf0xOH4eHYufPZm24U5M0buXKaxkzlPSKBCIlhvgk",
-          "apikey":"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxvYWFsbGt3bXdncWx4aG5kd3JmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQwNTM2MDgsImV4cCI6MjA4OTYyOTYwOH0.75Vf0xOH4eHYufPZm24U5M0buXKaxkzlPSKBCIlhvgk"},
+
+          // ✅ FIX: ADD AUTH HEADERS
+          "Authorization": "Bearer $anonKey",
+          "apikey": anonKey,
+        },
         body: jsonEncode({
           "email": email,
-          "username": username,
         }),
       );
 
-      //  STEP 3: SUCCESS MESSAGE
+      if (response.statusCode != 200) {
+        throw Exception(response.body);
+      }
+
       setState(() {
         _message = "📧 Username sent to your email!";
       });
     } catch (e) {
       setState(() {
-        _error = 'Error recovering username: $e';
+        _error = 'Error sending username: $e';
       });
     } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
+      setState(() {
+        _isLoading = false;
+      });
     }
   }
 
