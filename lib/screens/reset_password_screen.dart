@@ -62,7 +62,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
     });
 
     try {
-      // 🔥 CALL EDGE FUNCTION
+      //  CALL EDGE FUNCTION
       final response = await Supabase.instance.client.functions.invoke(
         'update-password',
         body: {

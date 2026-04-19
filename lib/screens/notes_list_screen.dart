@@ -253,12 +253,12 @@ class _NotesListScreenState extends State<NotesListScreen> {
             ),
           ),
 
-          // 🔥 REALTIME + FALLBACK
+          //  REALTIME + FALLBACK
           Expanded(
             child: StreamBuilder<List<Note>>(
               stream: _noteService.listenToNotes(),
               builder: (context, snapshot) {
-                // ❌ Realtime fails → fallback
+                //  Realtime fails → fallback
                 if (snapshot.hasError) {
                   return FutureBuilder<List<Note>>(
                     future: _noteService.getNotes(),

@@ -4,7 +4,7 @@ import bcrypt from "npm:bcrypt";
 const SUPABASE_URL = "https://loaallkwmwgqlxhndwrf.supabase.co";
 const SERVICE_ROLE_KEY = Deno.env.get("SERVICE_ROLE_KEY");
 
-// ✅ CORS
+//  CORS
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
@@ -19,7 +19,7 @@ serve(async (req) => {
   try {
     const { token, password } = await req.json();
 
-    // 🔐 Password validation
+    //  Password validation
     const strongPassword =
       /^(?=.*[A-Z])(?=.*[a-z])(?=.*\d)(?=.*[@$!%*?&]).{8,}$/;
 
@@ -30,7 +30,7 @@ serve(async (req) => {
       );
     }
 
-    // 🔍 Find reset token
+    //  Find reset token
     const tokenRes = await fetch(
       `${SUPABASE_URL}/rest/v1/password_resets?token=eq.${token}&limit=1`,
       {
@@ -52,7 +52,7 @@ serve(async (req) => {
 
     const reset = tokenData[0];
 
-    // ⏰ Check expiration
+    //  Check expiration
     if (new Date(reset.expires_at) < new Date()) {
       return new Response(
         JSON.stringify({ error: "Token expired" }),
@@ -62,7 +62,7 @@ serve(async (req) => {
 
     const email = reset.email;
 
-    // 🔍 Get user
+    //  Get user
     const userRes = await fetch(
       `${SUPABASE_URL}/rest/v1/profiles?recovery_email=eq.${email}`,
       {
@@ -84,10 +84,10 @@ serve(async (req) => {
 
     const user = users[0];
 
-    // 🔒 Hash for history
+    //  Hash for history
     const newHash = await bcrypt.hash(password, 10);
 
-    // 🚫 Prevent reuse
+    //  Prevent reuse
     if (user.password_history) {
       for (const oldHash of user.password_history) {
         const match = await bcrypt.compare(password, oldHash);
@@ -105,7 +105,7 @@ serve(async (req) => {
       user.password,
     ];
 
-    // 🔥 UPDATE AUTH PASSWORD
+    //  UPDATE AUTH PASSWORD
     const authUpdate = await fetch(
       `${SUPABASE_URL}/auth/v1/admin/users/${user.id}`,
       {
@@ -129,7 +129,7 @@ serve(async (req) => {
       );
     }
 
-    // 🔄 Update profile history
+    //  Update profile history
     await fetch(
       `${SUPABASE_URL}/rest/v1/profiles?id=eq.${user.id}`,
       {
@@ -146,7 +146,7 @@ serve(async (req) => {
       }
     );
 
-    // 🧹 Delete token
+    //  Delete token
     await fetch(
       `${SUPABASE_URL}/rest/v1/password_resets?token=eq.${token}`,
       {

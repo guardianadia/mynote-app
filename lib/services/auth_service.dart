@@ -75,7 +75,7 @@ class AuthService {
   }
 
   // =========================
-  // 🔥 FIXED PASSWORD RESET EMAIL
+  // FIXED PASSWORD RESET EMAIL
   // =========================
   Future<void> sendPasswordResetEmail(String email) async {
     final cleanEmail = email.trim().toLowerCase();
@@ -85,7 +85,7 @@ class AuthService {
       body: {'email': cleanEmail},
     );
 
-    // ✅ NEW WAY TO HANDLE ERRORS
+    //  NEW WAY TO HANDLE ERRORS
     if (response.status != 200) {
       throw Exception(response.data);
     }

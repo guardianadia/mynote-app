@@ -7,7 +7,7 @@ const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
 serve(async (req) => {
 
   // =========================
-  // ✅ CORS (REQUIRED)
+  //  CORS (REQUIRED)
   // =========================
   if (req.method === "OPTIONS") {
     return new Response("ok", {
@@ -20,13 +20,13 @@ serve(async (req) => {
   }
 
   try {
-    console.log("🔥 FUNCTION HIT");
+    console.log(" FUNCTION HIT");
 
     const { email } = await req.json();
-    console.log("📩 EMAIL RECEIVED:", email);
+    console.log(" EMAIL RECEIVED:", email);
 
     // =========================
-    // 🔍 FIND USERNAME
+    //  FIND USERNAME
     // =========================
     const userRes = await fetch(
       `${SUPABASE_URL}/rest/v1/profiles?recovery_email=eq.${email}&select=username`,
@@ -39,7 +39,7 @@ serve(async (req) => {
     );
 
     const users = await userRes.json();
-    console.log("👤 USER QUERY RESULT:", users);
+    console.log(" USER QUERY RESULT:", users);
 
     if (!users || users.length === 0) {
       return new Response(
@@ -52,10 +52,10 @@ serve(async (req) => {
     }
 
     const username = users[0].username;
-    console.log("✅ USERNAME FOUND:", username);
+    console.log(" USERNAME FOUND:", username);
 
     // =========================
-    // 📧 SEND EMAIL
+    //  SEND EMAIL
     // =========================
     console.log("📤 Sending email...");
 
@@ -78,8 +78,8 @@ serve(async (req) => {
 
     const data = await response.json();
 
-    console.log("📧 RESEND STATUS:", response.status);
-    console.log("📧 RESEND RESPONSE:", data);
+    console.log(" RESEND STATUS:", response.status);
+    console.log(" RESEND RESPONSE:", data);
 
     if (!response.ok) {
       return new Response(
@@ -92,7 +92,7 @@ serve(async (req) => {
     }
 
     // =========================
-    // ✅ SUCCESS
+    //  SUCCESS
     // =========================
     return new Response(
       JSON.stringify({ success: true }),
@@ -105,7 +105,7 @@ serve(async (req) => {
     );
 
   } catch (err) {
-    console.error("🔥 ERROR:", err);
+    console.error(" ERROR:", err);
 
     return new Response(
       JSON.stringify({ error: err.message }),

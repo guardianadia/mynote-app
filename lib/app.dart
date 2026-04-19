@@ -96,7 +96,7 @@ class MyNoteApp extends StatelessWidget {
         ),
       ),
 
-      // 🔥 KEEP THIS (Splash handles reset token)
+      //  KEEPING THIS (Splash handles reset token)
       home: const SplashScreen(),
     );
   }

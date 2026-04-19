@@ -49,7 +49,7 @@ class _ForgotUsernameScreenState extends State<ForgotUsernameScreen> {
         headers: {
           "Content-Type": "application/json",
 
-          // ✅ FIX: ADD AUTH HEADERS
+          //   ADD AUTH HEADERS
           "Authorization": "Bearer $anonKey",
           "apikey": anonKey,
         },

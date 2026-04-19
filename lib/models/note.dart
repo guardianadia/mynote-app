@@ -33,23 +33,45 @@ class Note {
   // FROM SUPABASE
   // =========================
   factory Note.fromMap(Map<String, dynamic> map) {
-    return Note(
-      id: map['id'] ?? '',
-      title: map['title'] ?? '',
-      content: map['content'] ?? '',
-      folder: map['folder'] ?? 'General',
-      category: map['category'] ?? 'General',
-      tags: List<String>.from(map['tags'] ?? []),
-
-      createdAt: DateTime.parse(map['created_at']),
-      updatedAt: DateTime.parse(map['updated_at']),
-
-      //  NEW (SAFE DEFAULTS)
-      isPinned: map['is_pinned'] ?? false,
-      isFavorite: map['is_favorite'] ?? false,
-      position: map['position'] ?? 0,
-    );
+  DateTime safeParse(dynamic value) {
+    try {
+      if (value == null) return DateTime.now();
+      return DateTime.parse(value);
+    } catch (_) {
+      return DateTime.now();
+    }
   }
+
+  List<String> parseTags(dynamic value) {
+    if (value is List) {
+      return List<String>.from(value);
+    } else if (value is String) {
+      return value
+          .split(',')
+          .map((e) => e.trim())
+          .where((e) => e.isNotEmpty)
+          .toList();
+    }
+    return [];
+  }
+
+  return Note(
+    id: map['id'] ?? '',
+    title: map['title'] ?? '',
+    content: map['content'] ?? '',
+    folder: map['folder'] ?? 'General',
+    category: map['category'] ?? 'General',
+
+    tags: parseTags(map['tags']),
+
+    createdAt: safeParse(map['created_at']),
+    updatedAt: safeParse(map['updated_at']),
+
+    isPinned: map['is_pinned'] ?? false,
+    isFavorite: map['is_favorite'] ?? false,
+    position: map['position'] ?? 0,
+  );
+}
 
   // =========================
   // TO MAP (OPTIONAL)

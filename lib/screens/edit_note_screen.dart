@@ -37,7 +37,7 @@ class _EditNoteScreenState extends State<EditNoteScreen> {
   String _noteId = '';
   String _saveStatus = '';
 
-  // 🎤 Speech
+  //  Speech
   final SpeechToText _speechToText = SpeechToText();
   bool _speechEnabled = false;
   bool _isListening = false;
@@ -261,7 +261,7 @@ class _EditNoteScreenState extends State<EditNoteScreen> {
               ),
             ),
 
-          // 🎤 Mic
+          //  Mic
           IconButton(
             icon: Icon(
               _isListening ? Icons.mic : Icons.mic_none,
@@ -272,7 +272,7 @@ class _EditNoteScreenState extends State<EditNoteScreen> {
                 : (_isListening ? _stopListening : _startListening),
           ),
 
-          // ✨ AI
+          //  AI
           IconButton(
             icon: _isSummarizing
                 ? const SizedBox(
@@ -284,7 +284,7 @@ class _EditNoteScreenState extends State<EditNoteScreen> {
             onPressed: _isSummarizing ? null : _summarizeNote,
           ),
 
-          // 💾 Save
+          //  Save
           IconButton(
             icon: _isSaving
                 ? const SizedBox(

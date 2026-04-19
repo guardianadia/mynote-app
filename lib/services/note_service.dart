@@ -9,7 +9,7 @@ class NoteService {
   final supabase = Supabase.instance.client;
   final _uuid = const Uuid();
 
-  // ✅ Hive cache (NEW)
+  //  Hive cache (NEW)
   final Box _box = Hive.box('notes_cache');
 
   // =========================
@@ -39,7 +39,7 @@ class NoteService {
     };
 
     try {
-      // 🔥 Cloud first (same as before)
+      //  Cloud first (same as before)
       await supabase.from('notes').upsert(
         data,
         onConflict: 'id',
@@ -47,13 +47,13 @@ class NoteService {
 
       dev.log(isNew ? "✅ INSERTED" : "✅ UPDATED");
 
-      // ✅ Cache locally
+      //  Cache locally
       _box.put(id, data);
 
     } catch (e) {
       dev.log("⚠️ OFFLINE MODE: saving locally");
 
-      // 🔥 Offline fallback
+      //  Offline fallback
       _box.put(id, data);
     }
   }
@@ -69,7 +69,7 @@ class NoteService {
       dev.log("❌ DELETE ERROR: $e");
     }
 
-    // ✅ Remove from cache too
+    //  Remove from cache too
     _box.delete(id);
   }
 
@@ -91,7 +91,7 @@ class NoteService {
       final notes =
           (res as List).map((e) => Note.fromMap(e)).toList();
 
-      // ✅ Sync cache
+      //  Sync cache
       await _box.clear();
       for (var n in notes) {
         _box.put(n.id, n.toMap());
@@ -102,7 +102,7 @@ class NoteService {
     } catch (e) {
       dev.log("⚠️ OFFLINE MODE: loading from cache");
 
-      // 🔥 fallback
+      // fallback
       final cached = _box.values.toList();
 
       return cached
