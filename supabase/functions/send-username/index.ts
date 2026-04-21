@@ -57,7 +57,7 @@ serve(async (req) => {
     // =========================
     //  SEND EMAIL
     // =========================
-    console.log("📤 Sending email...");
+    console.log(" Sending email...");
 
     const response = await fetch("https://api.resend.com/emails", {
       method: "POST",
