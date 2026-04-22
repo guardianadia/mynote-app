@@ -5,7 +5,7 @@ const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
 
 serve(async (req) => {
-  console.log("🔥 FUNCTION HIT");
+  console.log(" FUNCTION HIT");
 
   try {
     let body;
@@ -13,21 +13,21 @@ serve(async (req) => {
     try {
       body = await req.json();
     } catch {
-      console.log("❌ No JSON body received");
+      console.log(" No JSON body received");
       return new Response("Invalid JSON", { status: 400 });
     }
 
     const email = body?.email;
 
     if (!email) {
-      console.log("❌ Email missing");
+      console.log(" Email missing");
       return new Response("Email required", { status: 400 });
     }
 
-    console.log("📩 EMAIL RECEIVED:", email);
+    console.log(" EMAIL RECEIVED:", email);
 
     const token = Math.floor(1000000 + Math.random() * 9000000).toString();
-    console.log("🔑 TOKEN GENERATED:", token);
+    console.log(" TOKEN GENERATED:", token);
 
     // SAVE TOKEN
     const save = await fetch(`${SUPABASE_URL}/rest/v1/password_resets`, {
@@ -44,10 +44,10 @@ serve(async (req) => {
       }),
     });
 
-    console.log("💾 SAVE STATUS:", save.status);
+    console.log(" SAVE STATUS:", save.status);
 
     // SEND EMAIL
-    console.log("📤 Sending email...");
+    console.log(" Sending email...");
 
     const resend = await fetch("https://api.resend.com/emails", {
       method: "POST",
@@ -70,8 +70,8 @@ serve(async (req) => {
 
     const text = await resend.text();
 
-    console.log("📧 RESEND STATUS:", resend.status);
-    console.log("📧 RESEND RESPONSE:", text);
+    console.log(" RESEND STATUS:", resend.status);
+    console.log(" RESEND RESPONSE:", text);
 
     return new Response(
       JSON.stringify({ success: true }),
@@ -79,7 +79,7 @@ serve(async (req) => {
     );
 
   } catch (err) {
-    console.error("🔥 ERROR:", err);
+    console.error(" ERROR:", err);
     return new Response("Server error", { status: 500 });
   }
 });
