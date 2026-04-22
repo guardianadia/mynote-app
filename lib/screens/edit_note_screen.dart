@@ -37,7 +37,10 @@ class _EditNoteScreenState extends State<EditNoteScreen> {
   String _noteId = '';
   String _saveStatus = '';
 
-  //  Speech
+  // COLOR
+  Color _selectedColor = const Color(0xFFFFFFFF);
+
+  // SPEECH
   final SpeechToText _speechToText = SpeechToText();
   bool _speechEnabled = false;
   bool _isListening = false;
@@ -52,14 +55,23 @@ class _EditNoteScreenState extends State<EditNoteScreen> {
         TextEditingController(text: widget.note?.title ?? '');
     _contentController =
         TextEditingController(text: widget.note?.content ?? '');
+
     _selectedCategory = widget.note?.category ?? 'General';
     _tagList = widget.note?.tags ?? [];
     _tagsCtrl.text = _tagList.join(', ');
     _noteId = widget.note?.id ?? '';
 
+    // COLOR INIT
+ //   _selectedColor = widget.note != null
+   //     ? Color(widget.note!.color)
+     //   : const Color(0xFFFFFFFF);
+
     _initSpeech();
   }
 
+  // =========================
+  // SPEECH INIT
+  // =========================
   Future<void> _initSpeech() async {
     _speechEnabled = await _speechToText.initialize(
       onStatus: _onSpeechStatus,
@@ -126,6 +138,9 @@ class _EditNoteScreenState extends State<EditNoteScreen> {
     });
   }
 
+  // =========================
+  // TAGS
+  // =========================
   void _addTag() {
     final tag = _tagsCtrl.text.trim();
     if (tag.isEmpty) return;
@@ -141,6 +156,52 @@ class _EditNoteScreenState extends State<EditNoteScreen> {
     setState(() => _tagList.remove(tag));
   }
 
+  // =========================
+  // COLOR PICKER
+  // =========================
+  Future<void> _pickColor() async {
+    final picked = await showDialog<Color>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text("Pick a color"),
+        content: Wrap(
+          spacing: 10,
+          children: [
+            _colorDot(Colors.white),
+            _colorDot(Colors.yellow.shade200),
+            _colorDot(Colors.blue.shade200),
+            _colorDot(Colors.green.shade200),
+            _colorDot(Colors.pink.shade200),
+            _colorDot(Colors.orange.shade200),
+            _colorDot(Colors.purple.shade200),
+          ],
+        ),
+      ),
+    );
+
+    if (picked != null) {
+      setState(() => _selectedColor = picked);
+    }
+  }
+
+  Widget _colorDot(Color color) {
+    return GestureDetector(
+      onTap: () => Navigator.pop(context, color),
+      child: Container(
+        width: 35,
+        height: 35,
+        decoration: BoxDecoration(
+          color: color,
+          shape: BoxShape.circle,
+          border: Border.all(color: Colors.black12),
+        ),
+      ),
+    );
+  }
+
+  // =========================
+  // SAVE NOTE
+  // =========================
   Future<void> _save() async {
     if (_titleController.text.trim().isEmpty &&
         _contentController.text.trim().isEmpty) {
@@ -161,6 +222,7 @@ class _EditNoteScreenState extends State<EditNoteScreen> {
       folder: widget.note?.folder ?? 'General',
       category: _selectedCategory,
       tags: _tagList,
+     // color: _selectedColor.value,
       createdAt: widget.note?.createdAt ?? now,
       updatedAt: now,
     );
@@ -176,10 +238,7 @@ class _EditNoteScreenState extends State<EditNoteScreen> {
 
       setState(() => _saveStatus = 'Saved ✔');
 
-      Future.delayed(const Duration(seconds: 2), () {
-        if (!mounted) return;
-        setState(() => _saveStatus = '');
-      });
+      await Future.delayed(const Duration(milliseconds: 400));
 
       Navigator.pop(context);
     } catch (e) {
@@ -192,6 +251,9 @@ class _EditNoteScreenState extends State<EditNoteScreen> {
     }
   }
 
+  // =========================
+  // AI SUMMARY
+  // =========================
   Future<void> _summarizeNote() async {
     final text = _contentController.text;
     if (text.trim().isEmpty) return;
@@ -241,6 +303,9 @@ class _EditNoteScreenState extends State<EditNoteScreen> {
     super.dispose();
   }
 
+  // =========================
+  // UI
+  // =========================
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -261,18 +326,20 @@ class _EditNoteScreenState extends State<EditNoteScreen> {
               ),
             ),
 
-          //  Mic
           IconButton(
-            icon: Icon(
-              _isListening ? Icons.mic : Icons.mic_none,
-              color: _isListening ? Colors.red : null,
-            ),
+            icon: const Icon(Icons.palette),
+            onPressed: _pickColor,
+          ),
+
+          IconButton(
+            icon: _isListening
+                ? const Icon(Icons.mic, color: Colors.red)
+                : const Icon(Icons.mic_none),
             onPressed: !_speechEnabled
                 ? _initSpeech
                 : (_isListening ? _stopListening : _startListening),
           ),
 
-          //  AI
           IconButton(
             icon: _isSummarizing
                 ? const SizedBox(
@@ -284,7 +351,6 @@ class _EditNoteScreenState extends State<EditNoteScreen> {
             onPressed: _isSummarizing ? null : _summarizeNote,
           ),
 
-          //  Save
           IconButton(
             icon: _isSaving
                 ? const SizedBox(
@@ -301,6 +367,17 @@ class _EditNoteScreenState extends State<EditNoteScreen> {
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
+            Container(
+              height: 10,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: _selectedColor,
+                borderRadius: BorderRadius.circular(6),
+              ),
+            ),
+
+            const SizedBox(height: 12),
+
             TextField(
               controller: _titleController,
               decoration: _input("Title"),
@@ -309,11 +386,13 @@ class _EditNoteScreenState extends State<EditNoteScreen> {
             const SizedBox(height: 12),
 
             DropdownButtonFormField<String>(
-              initialValue: _selectedCategory,
+              value: _selectedCategory,
               decoration: _input("Category"),
               items: _categories
-                  .map((c) =>
-                      DropdownMenuItem(value: c, child: Text(c)))
+                  .map((c) => DropdownMenuItem(
+                        value: c,
+                        child: Text(c),
+                      ))
                   .toList(),
               onChanged: (value) {
                 setState(() => _selectedCategory = value!);
@@ -339,12 +418,9 @@ class _EditNoteScreenState extends State<EditNoteScreen> {
 
             Wrap(
               spacing: 6,
-              children: _tagList.map((tag) {
-                return Chip(
-                  label: Text(tag),
-                  onDeleted: () => _removeTag(tag),
-                );
-              }).toList(),
+              children: _tagList
+                  .map((tag) => Chip(label: Text(tag)))
+                  .toList(),
             ),
 
             const SizedBox(height: 12),
@@ -358,15 +434,6 @@ class _EditNoteScreenState extends State<EditNoteScreen> {
                 decoration: _input("Start typing your note..."),
               ),
             ),
-
-            if (_speechError != null)
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Text(
-                  _speechError!,
-                  style: const TextStyle(color: Colors.red),
-                ),
-              ),
           ],
         ),
       ),

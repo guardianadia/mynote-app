@@ -17,12 +17,21 @@ class _NotesListScreenState extends State<NotesListScreen> {
   final _client = Supabase.instance.client;
 
   String _searchQuery = '';
+  String _selectedCategory = 'All';
 
   // =========================
-  // FILTER + SORT
+  // FILTER LOGIC
   // =========================
   List<Note> _applyFilters(List<Note> notes) {
-    List<Note> temp = notes.where((note) {
+    List<Note> temp = notes;
+
+    // CATEGORY FILTER
+    if (_selectedCategory != 'All') {
+      temp = temp.where((note) => note.category == _selectedCategory).toList();
+    }
+
+    // SEARCH FILTER
+    temp = temp.where((note) {
       return note.title.toLowerCase().contains(_searchQuery.toLowerCase()) ||
           note.content.toLowerCase().contains(_searchQuery.toLowerCase());
     }).toList();
@@ -33,7 +42,7 @@ class _NotesListScreenState extends State<NotesListScreen> {
       return a.isPinned ? -1 : 1;
     });
 
-    // SORT BY UPDATED
+    // NEWEST FIRST
     temp.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
 
     return temp;
@@ -52,7 +61,7 @@ class _NotesListScreenState extends State<NotesListScreen> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text("Note deleted 🗑️"),
+          content: Text("Note deleted"),
           duration: Duration(seconds: 2),
         ),
       );
@@ -91,7 +100,7 @@ class _NotesListScreenState extends State<NotesListScreen> {
   }
 
   // =========================
-  // REUSABLE LIST BUILDER
+  // LIST UI
   // =========================
   Widget _buildList(List<Note> notes) {
     return ListView.builder(
@@ -104,7 +113,6 @@ class _NotesListScreenState extends State<NotesListScreen> {
           key: ValueKey(note.id),
           direction: DismissDirection.endToStart,
           onDismissed: (_) => _deleteNote(note.id),
-
           background: Container(
             margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             decoration: BoxDecoration(
@@ -115,25 +123,22 @@ class _NotesListScreenState extends State<NotesListScreen> {
             padding: const EdgeInsets.only(right: 20),
             child: const Icon(Icons.delete, color: Colors.white),
           ),
-
           child: GestureDetector(
             onTap: () => _openEditor(note),
             child: Container(
               margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               padding: const EdgeInsets.all(18),
-
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(18),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.05),
+                    color: Colors.black.withOpacity(0.05),
                     blurRadius: 12,
                     offset: const Offset(0, 6),
                   ),
                 ],
               ),
-
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -153,18 +158,13 @@ class _NotesListScreenState extends State<NotesListScreen> {
                             size: 18, color: Colors.deepPurple),
                     ],
                   ),
-
                   const SizedBox(height: 6),
-
                   Text(
                     note.content,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 14),
                   ),
-
                   const SizedBox(height: 12),
-
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -218,9 +218,7 @@ class _NotesListScreenState extends State<NotesListScreen> {
             onPressed: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(
-                  builder: (_) => AccountScreen(),
-                ),
+                MaterialPageRoute(builder: (_) => AccountScreen()),
               );
             },
           ),
@@ -231,78 +229,94 @@ class _NotesListScreenState extends State<NotesListScreen> {
         ],
       ),
 
-      body: Column(
-        children: [
-          // SEARCH
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: TextField(
-              decoration: InputDecoration(
-                hintText: 'Search notes...',
-                prefixIcon: const Icon(Icons.search),
-                filled: true,
-                fillColor: Colors.white,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(18),
-                  borderSide: BorderSide.none,
+      body: StreamBuilder<List<Note>>(
+        stream: _noteService.listenToNotes(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          final rawNotes = snapshot.data ?? [];
+
+          // BUILD CATEGORIES (NO setState)
+          final categorySet = <String>{};
+          for (var note in rawNotes) {
+            categorySet.add(note.category);
+          }
+          final availableCategories = ['All', ...categorySet];
+
+          final notes = _applyFilters(rawNotes);
+
+          return Column(
+            children: [
+              // CATEGORY FILTER BAR
+              SizedBox(
+                height: 50,
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  itemCount: availableCategories.length,
+                  itemBuilder: (context, index) {
+                    final cat = availableCategories[index];
+
+                    return GestureDetector(
+                      onTap: () {
+                        setState(() => _selectedCategory = cat);
+                      },
+                      child: Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 6),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: _selectedCategory == cat
+                              ? const Color(0xFF5B2C83)
+                              : Colors.white,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: Colors.black12),
+                        ),
+                        child: Text(
+                          cat,
+                          style: TextStyle(
+                            color: _selectedCategory == cat
+                                ? Colors.white
+                                : Colors.black,
+                          ),
+                        ),
+                      ),
+                    );
+                  },
                 ),
               ),
-              onChanged: (v) {
-                setState(() => _searchQuery = v);
-              },
-            ),
-          ),
 
-          //  REALTIME + FALLBACK
-          Expanded(
-            child: StreamBuilder<List<Note>>(
-              stream: _noteService.listenToNotes(),
-              builder: (context, snapshot) {
-                //  Realtime fails → fallback
-                if (snapshot.hasError) {
-                  return FutureBuilder<List<Note>>(
-                    future: _noteService.getNotes(),
-                    builder: (context, fallback) {
-                      if (fallback.connectionState ==
-                          ConnectionState.waiting) {
-                        return const Center(
-                            child: CircularProgressIndicator());
-                      }
+              // SEARCH
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: TextField(
+                  decoration: InputDecoration(
+                    hintText: 'Search notes...',
+                    prefixIcon: const Icon(Icons.search),
+                    filled: true,
+                    fillColor: Colors.white,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(18),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
+                  onChanged: (v) {
+                    setState(() => _searchQuery = v);
+                  },
+                ),
+              ),
 
-                      final notes =
-                          _applyFilters(fallback.data ?? []);
-
-                      if (notes.isEmpty) {
-                        return const Center(
-                          child: Text("No notes yet ✨"),
-                        );
-                      }
-
-                      return _buildList(notes);
-                    },
-                  );
-                }
-
-                // LOADING
-                if (snapshot.connectionState ==
-                    ConnectionState.waiting) {
-                  return const Center(
-                      child: CircularProgressIndicator());
-                }
-
-                final notes = _applyFilters(snapshot.data ?? []);
-
-                if (notes.isEmpty) {
-                  return const Center(
-                    child: Text("No notes yet ✨"),
-                  );
-                }
-
-                return _buildList(notes);
-              },
-            ),
-          ),
-        ],
+              // LIST
+              Expanded(
+                child: notes.isEmpty
+                    ? const Center(child: Text("No notes yet"))
+                    : _buildList(notes),
+              ),
+            ],
+          );
+        },
       ),
 
       floatingActionButton: FloatingActionButton(
