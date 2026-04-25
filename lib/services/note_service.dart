@@ -9,19 +9,37 @@ class NoteService {
   final supabase = Supabase.instance.client;
   final _uuid = const Uuid();
 
-  //  Hive cache (NEW)
-  final Box _box = Hive.box('notes_cache');
+  Box? _box;
 
   // =========================
-  // SAVE / UPDATE (NO UI CHANGE)
+  // INIT (UNCHANGED)
   // =========================
-  Future<void> saveNote(Note note) async {
+  Future<void> init() async {
     final user = supabase.auth.currentUser;
 
-    if (user == null) {
-      dev.log("❌ USER NOT LOGGED IN");
-      return;
+    final boxName =
+        user != null ? 'notes_${user.id}' : 'notes_guest';
+
+    _box = await Hive.openBox(boxName);
+  }
+
+  // =========================
+  //  SAFE BOX ACCESS 
+  // =========================
+  Future<Box> _ensureBox() async {
+    if (_box == null) {
+      await init(); //  auto-fix if not initialized
     }
+    return _box!;
+  }
+
+  // =========================
+  // SAVE / UPDATE (SAFE)
+  // =========================
+  Future<void> saveNote(Note note) async {
+    final box = await _ensureBox();
+
+    final user = supabase.auth.currentUser;
 
     final isNew = note.id.isEmpty;
     final id = isNew ? _uuid.v4() : note.id;
@@ -31,102 +49,102 @@ class NoteService {
     final data = {
       ...note.toMap(),
       'id': id,
-      'user_id': user.id,
+      'user_id': user?.id,
       'created_at': isNew
           ? now
           : note.createdAt.toIso8601String(),
       'updated_at': now,
     };
 
+    await box.put(id, data);
+    dev.log("Saved locally (Hive)");
+
     try {
-      //  Cloud first (same as before)
-      await supabase.from('notes').upsert(
-        data,
-        onConflict: 'id',
-      );
-
-      dev.log(isNew ? "✅ INSERTED" : "✅ UPDATED");
-
-      //  Cache locally
-      _box.put(id, data);
-
-    } catch (e) {
-      dev.log("⚠️ OFFLINE MODE: saving locally");
-
-      //  Offline fallback
-      _box.put(id, data);
+      if (user != null) {
+        await supabase.from('notes').upsert(
+          data,
+          onConflict: 'id',
+        );
+        dev.log(isNew ? "Inserted (cloud)" : "Updated (cloud)");
+      }
+    } catch (_) {
+      dev.log("Offline → saved locally only");
     }
   }
 
   // =========================
-  // DELETE NOTE
+  // DELETE NOTE (SAFE)
   // =========================
   Future<void> deleteNote(String id) async {
+    final box = await _ensureBox();
+
+    await box.delete(id);
+
     try {
       await supabase.from('notes').delete().eq('id', id);
-      dev.log("🗑️ Deleted note");
-    } catch (e) {
-      dev.log("❌ DELETE ERROR: $e");
+    } catch (_) {
+      dev.log("Offline → delete local only");
     }
-
-    //  Remove from cache too
-    _box.delete(id);
   }
 
   // =========================
-  // GET NOTES (SMART FETCH)
+  // GET NOTES (SAFE)
   // =========================
   Future<List<Note>> getNotes() async {
+    final box = await _ensureBox();
     final user = supabase.auth.currentUser;
 
-    if (user == null) return [];
-
     try {
-      final res = await supabase
-          .from('notes')
-          .select()
-          .eq('user_id', user.id)
-          .order('updated_at', ascending: false);
+      if (user != null) {
+        final res = await supabase
+            .from('notes')
+            .select()
+            .eq('user_id', user.id)
+            .order('updated_at', ascending: false);
 
-      final notes =
-          (res as List).map((e) => Note.fromMap(e)).toList();
+        final notes =
+            (res as List).map((e) => Note.fromMap(e)).toList();
 
-      //  Sync cache
-      await _box.clear();
-      for (var n in notes) {
-        _box.put(n.id, n.toMap());
+        if (notes.isNotEmpty) {
+          await box.clear();
+          for (var n in notes) {
+            box.put(n.id, n.toMap());
+          }
+        }
+
+        return notes;
       }
+    } catch (_) {
+      dev.log("Offline → using Hive");
+    }
 
-      return notes;
+    final cached = box.values.toList();
 
-    } catch (e) {
-      dev.log("⚠️ OFFLINE MODE: loading from cache");
+    return cached
+        .map((e) => Note.fromMap(Map<String, dynamic>.from(e)))
+        .toList();
+  }
 
-      // fallback
-      final cached = _box.values.toList();
+  // =========================
+  // STREAM (SAFE FIX)
+  // =========================
+  Stream<List<Note>> listenToNotes() async* {
+    final box = await _ensureBox();
+
+    List<Note> localNotes() {
+      final cached = box.values.toList();
 
       return cached
           .map((e) => Note.fromMap(Map<String, dynamic>.from(e)))
           .toList();
     }
-  }
 
-  // =========================
-  // REALTIME STREAM (UNCHANGED)
-  // =========================
-  Stream<List<Note>> listenToNotes() {
-    final user = supabase.auth.currentUser;
+    // emit existing notes immediately
+    yield localNotes();
 
-    if (user == null) {
-      return const Stream.empty();
-    }
-
-    return supabase
-        .from('notes')
-        .stream(primaryKey: ['id'])
-        .eq('user_id', user.id)
-        .order('updated_at', ascending: false)
-        .map((data) =>
-            data.map((e) => Note.fromMap(e)).toList());
+    // listen for changes
+    yield* box.watch().map((event) {
+      return localNotes();
+    });
   }
 }

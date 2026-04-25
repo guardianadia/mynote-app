@@ -1,6 +1,9 @@
+import 'dart:io'; // 🔥 NEW
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:hive/hive.dart'; 
 
 import 'package:mynote/services/auth_service.dart';
 import 'package:mynote/services/supabase_config.dart';
@@ -12,6 +15,10 @@ void main() {
 
   setUpAll(() async {
     SharedPreferences.setMockInitialValues({});
+
+    //  initialize Hive with temp directory (TEST SAFE)
+    final dir = Directory.systemTemp.createTempSync();
+    Hive.init(dir.path);
 
     try {
       Supabase.instance.client;
@@ -58,7 +65,8 @@ void main() {
 
     test('recoverUsername handles failure safely', () async {
       try {
-        final result = await auth.recoverUsernameByEmail('fake@email.com');
+        final result =
+            await auth.recoverUsernameByEmail('fake@email.com');
         expect(result, anyOf(isNull, isA<String>()));
       } catch (_) {
         expect(true, true);

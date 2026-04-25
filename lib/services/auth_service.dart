@@ -1,4 +1,5 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'note_service.dart'; 
 
 class AuthService {
   final SupabaseClient _client = Supabase.instance.client;
@@ -15,6 +16,10 @@ class AuthService {
   // =========================
   Future<void> logout() async {
     await _client.auth.signOut();
+
+    // switch to guest/local box
+    final noteService = NoteService();
+    await noteService.init();
   }
 
   // =========================
@@ -66,7 +71,14 @@ class AuthService {
       final email = result['recovery_email'] as String?;
       if (email == null) return false;
 
-      await _client.auth.signInWithPassword(email: email, password: password);
+      await _client.auth.signInWithPassword(
+        email: email,
+        password: password,
+      );
+
+      // initialize correct Hive box for logged-in user
+      final noteService = NoteService();
+      await noteService.init();
 
       return true;
     } catch (_) {
@@ -85,7 +97,6 @@ class AuthService {
       body: {'email': cleanEmail},
     );
 
-    //  NEW WAY TO HANDLE ERRORS
     if (response.status != 200) {
       throw Exception(response.data);
     }
@@ -197,5 +208,9 @@ class AuthService {
     }
 
     await _client.auth.signOut();
+
+    // reset Hive after account deletion
+    final noteService = NoteService();
+    await noteService.init();
   }
 }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
+import '../services/note_service.dart'; 
 
 class AccountScreen extends StatefulWidget {
   const AccountScreen({super.key});
@@ -47,7 +48,6 @@ class _AccountScreenState extends State<AccountScreen> {
     final newPass = _newPassCtrl.text;
     final confirmPass = _confirmPassCtrl.text;
 
-    // VALIDATION
     if (newEmail.isEmpty && newPass.isEmpty) {
       setState(() {
         _error = "Enter a new email or password.";
@@ -121,8 +121,13 @@ class _AccountScreenState extends State<AccountScreen> {
     if (confirm == true) {
       try {
         await _auth.clearAccount();
+
+        // reset Hive after account deletion
+        final noteService = NoteService();
+        await noteService.init();
+
         if (!mounted) return;
-        Navigator.pop(context); // go back after deleting
+        Navigator.pop(context);
       } catch (e) {
         setState(() => _error = "Delete failed: $e");
       }
@@ -157,7 +162,6 @@ class _AccountScreenState extends State<AccountScreen> {
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            // CURRENT EMAIL
             _sectionTitle("Current Email"),
             TextField(
               controller: _oldEmailCtrl,
@@ -168,7 +172,6 @@ class _AccountScreenState extends State<AccountScreen> {
             ),
             const SizedBox(height: 24),
 
-            // NEW EMAIL
             _sectionTitle("New Email"),
             TextField(
               controller: _newEmailCtrl,
@@ -178,6 +181,7 @@ class _AccountScreenState extends State<AccountScreen> {
               ),
             ),
             const SizedBox(height: 10),
+
             _sectionTitle("Confirm New Email"),
             TextField(
               controller: _confirmEmailCtrl,
@@ -188,7 +192,6 @@ class _AccountScreenState extends State<AccountScreen> {
             ),
             const SizedBox(height: 24),
 
-            // NEW PASSWORD
             _sectionTitle("New Password"),
             TextField(
               controller: _newPassCtrl,
@@ -204,6 +207,7 @@ class _AccountScreenState extends State<AccountScreen> {
               ),
             ),
             const SizedBox(height: 10),
+
             _sectionTitle("Confirm New Password"),
             TextField(
               controller: _confirmPassCtrl,
@@ -221,7 +225,6 @@ class _AccountScreenState extends State<AccountScreen> {
             ),
             const SizedBox(height: 20),
 
-            // ERROR / SUCCESS MESSAGE
             if (_error != null)
               Text(_error!, style: const TextStyle(color: Colors.red)),
             if (_message != null)
@@ -231,7 +234,6 @@ class _AccountScreenState extends State<AccountScreen> {
 
             const SizedBox(height: 20),
 
-            // SAVE CHANGES BUTTON
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
@@ -247,7 +249,6 @@ class _AccountScreenState extends State<AccountScreen> {
             ),
             const SizedBox(height: 20),
 
-            // DELETE ACCOUNT BUTTON
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(

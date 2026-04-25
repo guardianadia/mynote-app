@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
+import '../services/note_service.dart'; 
 import '../screens/notes_list_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -46,7 +47,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   Future<void> _register() async {
     final username = _userCtrl.text.trim();
     final password = _passCtrl.text.trim();
-    final confirm = _confirmCtrl.text.trim(); // ✅ FIXED
+    final confirm = _confirmCtrl.text.trim();
     final email = _emailCtrl.text.trim();
 
     final a1 = _a1Ctrl.text.trim();
@@ -64,7 +65,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
       return;
     }
 
-    // CONFIRM PASSWORD CHECK
     if (password != confirm) {
       setState(() => _error = 'Passwords do not match.');
       return;
@@ -83,6 +83,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
         securityQuestions: _questions,
         securityAnswers: [a1, a2, a3],
       );
+
+      // initialize Hive for this user
+      final noteService = NoteService();
+      await noteService.init();
 
       if (!mounted) return;
 

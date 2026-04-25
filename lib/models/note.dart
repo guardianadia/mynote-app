@@ -3,7 +3,10 @@ class Note {
   final String title;
   final String content;
   final String folder;
- // final int color;
+
+  //  SAFE OPTIONAL FIELD
+  final int? color;
+
   final String category;
   final List<String> tags;
   final DateTime createdAt;
@@ -25,7 +28,9 @@ class Note {
     this.isPinned = false,
     this.isFavorite = false,
     this.position = 0,
-  //  this.color = 0xFFFFFFFF,
+
+    //   (OPTIONAL → won't break old notes)
+    this.color,
   });
 
   factory Note.fromMap(Map<String, dynamic> map) {
@@ -63,7 +68,9 @@ class Note {
       isPinned: map['is_pinned'] ?? false,
       isFavorite: map['is_favorite'] ?? false,
       position: map['position'] ?? 0,
-    //  color: map['color'] ?? 0xFFFFFFFF,
+
+      //  SAFE LOAD (works even if column doesn't exist yet)
+      color: map['color'],
     );
   }
 
@@ -80,7 +87,9 @@ class Note {
       'is_pinned': isPinned,
       'is_favorite': isFavorite,
       'position': position,
-    //  'color': color,
+
+      //  SAVE COLOR
+      'color': color,
     };
   }
 }

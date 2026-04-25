@@ -45,7 +45,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       if (!mounted) return;
 
       setState(() {
-        _message = "📧 Reset link sent to your email!";
+        _message = "Reset link sent to your email!";
       });
     } catch (e) {
       setState(() {
