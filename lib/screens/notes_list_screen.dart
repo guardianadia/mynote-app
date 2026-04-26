@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/note.dart';
 import '../services/note_service.dart';
-import '../services/auth_service.dart'; // ✅ needed
+import '../services/auth_service.dart';
 import 'edit_note_screen.dart';
 import 'account_screen.dart';
 
@@ -18,6 +18,10 @@ class _NotesListScreenState extends State<NotesListScreen> {
   String _searchQuery = '';
   String _selectedCategory = 'All';
   bool _showFavoritesOnly = false;
+
+  // FAVORITE (search typing)
+  final TextEditingController _searchController = TextEditingController();
+  final FocusNode _searchFocusNode = FocusNode();
 
   List<Note> _applyFilters(List<Note> notes) {
     List<Note> temp = notes;
@@ -83,7 +87,6 @@ class _NotesListScreenState extends State<NotesListScreen> {
     setState(() {});
   }
 
-  // LOGOUT (uses AuthService)
   Future<void> _logout() async {
     final auth = AuthService();
     await auth.logout();
@@ -101,7 +104,7 @@ class _NotesListScreenState extends State<NotesListScreen> {
       padding: const EdgeInsets.only(bottom: 80),
       itemCount: notes.length,
       itemBuilder: (context, index) {
-        final note = notes[index]; 
+        final note = notes[index];
 
         final noteColor =
             note.color != null ? Color(note.color!) : Colors.white;
@@ -144,15 +147,8 @@ class _NotesListScreenState extends State<NotesListScreen> {
               margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(
-                color: noteColor.withValues(alpha: 0.35),
+                color: noteColor.withOpacity(0.35),
                 borderRadius: BorderRadius.circular(18),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.05),
-                    blurRadius: 12,
-                    offset: const Offset(0, 6),
-                  ),
-                ],
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -211,23 +207,23 @@ class _NotesListScreenState extends State<NotesListScreen> {
   }
 
   @override
+  void dispose() {
+    _searchController.dispose();
+    _searchFocusNode.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF2EAFE),
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        title: const Text(
-          'My Notes',
-          style: TextStyle(
-            color: Color(0xFF5B2C83),
-            fontWeight: FontWeight.bold,
-            fontSize: 22,
-          ),
-        ),
+        title: const Text('My Notes'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.person, color: Color(0xFF5B2C83)),
+            icon: const Icon(Icons.person),
             onPressed: () {
               Navigator.push(
                 context,
@@ -236,7 +232,7 @@ class _NotesListScreenState extends State<NotesListScreen> {
             },
           ),
           IconButton(
-            icon: const Icon(Icons.logout, color: Color(0xFF5B2C83)),
+            icon: const Icon(Icons.logout),
             onPressed: _logout,
           ),
         ],
@@ -244,73 +240,15 @@ class _NotesListScreenState extends State<NotesListScreen> {
       body: StreamBuilder<List<Note>>(
         stream: _noteService.listenToNotes(),
         builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-
-          final rawNotes = snapshot.data ?? [];
-
-          final categorySet = <String>{};
-          for (var note in rawNotes) {
-            categorySet.add(note.category);
-          }
-
-          final availableCategories = ['All', 'Favorites', ...categorySet];
-          final notes = _applyFilters(rawNotes);
+          final notes = _applyFilters(snapshot.data ?? []);
 
           return Column(
             children: [
-              SizedBox(
-                height: 50,
-                child: ListView.builder(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  itemCount: availableCategories.length,
-                  itemBuilder: (context, index) {
-                    final cat = availableCategories[index];
-
-                    final isSelected =
-                        _selectedCategory == cat ||
-                        (cat == 'Favorites' && _showFavoritesOnly);
-
-                    return GestureDetector(
-                      onTap: () {
-                        setState(() {
-                          if (cat == 'Favorites') {
-                            _showFavoritesOnly = true;
-                            _selectedCategory = 'All';
-                          } else {
-                            _showFavoritesOnly = false;
-                            _selectedCategory = cat;
-                          }
-                        });
-                      },
-                      child: Container(
-                        margin: const EdgeInsets.symmetric(horizontal: 6),
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 14, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: isSelected
-                              ? const Color(0xFF5B2C83)
-                              : Colors.white,
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: Colors.black12),
-                        ),
-                        child: Text(
-                          cat,
-                          style: TextStyle(
-                            color:
-                                isSelected ? Colors.white : Colors.black,
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
               Padding(
                 padding: const EdgeInsets.all(16),
                 child: TextField(
+                  controller: _searchController,
+                  focusNode: _searchFocusNode,
                   decoration: InputDecoration(
                     hintText: 'Search notes...',
                     prefixIcon: const Icon(Icons.search),
@@ -336,7 +274,6 @@ class _NotesListScreenState extends State<NotesListScreen> {
         },
       ),
       floatingActionButton: FloatingActionButton(
-        backgroundColor: const Color(0xFF5B2C83),
         child: const Icon(Icons.add),
         onPressed: () => _openEditor(null),
       ),

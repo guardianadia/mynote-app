@@ -12,7 +12,7 @@ class NoteService {
   Box? _box;
 
   // =========================
-  // INIT (UNCHANGED)
+  // INIT
   // =========================
   Future<void> init() async {
     final user = supabase.auth.currentUser;
@@ -24,26 +24,24 @@ class NoteService {
   }
 
   // =========================
-  //  SAFE BOX ACCESS 
+  // SAFE BOX ACCESS
   // =========================
   Future<Box> _ensureBox() async {
     if (_box == null) {
-      await init(); //  auto-fix if not initialized
+      await init();
     }
     return _box!;
   }
 
   // =========================
-  // SAVE / UPDATE (SAFE)
+  // SAVE / UPDATE 
   // =========================
   Future<void> saveNote(Note note) async {
     final box = await _ensureBox();
-
     final user = supabase.auth.currentUser;
 
     final isNew = note.id.isEmpty;
     final id = isNew ? _uuid.v4() : note.id;
-
     final now = DateTime.now().toIso8601String();
 
     final data = {
@@ -56,24 +54,36 @@ class NoteService {
       'updated_at': now,
     };
 
+    // ALWAYS SAVE LOCALLY
     await box.put(id, data);
     dev.log("Saved locally (Hive)");
 
+    // ❗ REQUIRE USER FOR CLOUD
+    if (user == null) {
+      dev.log(" No user session → cannot sync to Supabase");
+      return;
+    }
+
     try {
-      if (user != null) {
-        await supabase.from('notes').upsert(
-          data,
-          onConflict: 'id',
-        );
-        dev.log(isNew ? "Inserted (cloud)" : "Updated (cloud)");
-      }
-    } catch (_) {
-      dev.log("Offline → saved locally only");
+      final response = await supabase
+          .from('notes')
+          .upsert(
+            {
+              ...data,
+              'user_id': user.id,
+            },
+            onConflict: 'id',
+          )
+          .select();
+
+      dev.log(" Supabase SUCCESS: $response");
+    } catch (e) {
+      dev.log(" Supabase ERROR: $e");
     }
   }
 
   // =========================
-  // DELETE NOTE (SAFE)
+  // DELETE NOTE
   // =========================
   Future<void> deleteNote(String id) async {
     final box = await _ensureBox();
@@ -88,7 +98,7 @@ class NoteService {
   }
 
   // =========================
-  // GET NOTES (SAFE)
+  // GET NOTES
   // =========================
   Future<List<Note>> getNotes() async {
     final box = await _ensureBox();
@@ -126,7 +136,7 @@ class NoteService {
   }
 
   // =========================
-  // STREAM (SAFE FIX)
+  // STREAM
   // =========================
   Stream<List<Note>> listenToNotes() async* {
     final box = await _ensureBox();
@@ -139,10 +149,8 @@ class NoteService {
           .toList();
     }
 
-    // emit existing notes immediately
     yield localNotes();
 
-    // listen for changes
     yield* box.watch().map((event) {
       return localNotes();
     });

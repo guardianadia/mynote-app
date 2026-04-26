@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:mynote/models/note.dart';
 import 'package:mynote/services/note_service.dart';
 import 'package:mynote/services/gemini_service.dart';
-import 'package:speech_to_text/speech_recognition_result.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 
 class EditNoteScreen extends StatefulWidget {
@@ -38,10 +37,8 @@ class _EditNoteScreenState extends State<EditNoteScreen> {
 
   String _noteId = '';
 
-  // COLOR
   Color _selectedColor = Colors.white;
 
-  // SPEECH
   final SpeechToText _speechToText = SpeechToText();
   bool _speechEnabled = false;
   bool _isListening = false;
@@ -68,9 +65,6 @@ class _EditNoteScreenState extends State<EditNoteScreen> {
     _initSpeech();
   }
 
-  // =========================
-  // SPEECH
-  // =========================
   Future<void> _initSpeech() async {
     _speechEnabled = await _speechToText.initialize();
     if (!mounted) return;
@@ -80,7 +74,7 @@ class _EditNoteScreenState extends State<EditNoteScreen> {
   Future<void> _startListening() async {
     _contentBeforeListening = _contentController.text;
 
-    await _speechToText.listen(onResult: (SpeechRecognitionResult result) {
+    await _speechToText.listen(onResult: (result) {
       setState(() {
         _contentController.text =
             '$_contentBeforeListening ${result.recognizedWords}';
@@ -95,9 +89,6 @@ class _EditNoteScreenState extends State<EditNoteScreen> {
     setState(() => _isListening = false);
   }
 
-  // =========================
-  // TAGS
-  // =========================
   void _addTag() {
     final tag = _tagsCtrl.text.trim();
     if (tag.isEmpty) return;
@@ -109,9 +100,6 @@ class _EditNoteScreenState extends State<EditNoteScreen> {
     _tagsCtrl.clear();
   }
 
-  // =========================
-  // COLOR PICKER
-  // =========================
   Future<void> _pickColor() async {
     final picked = await showDialog<Color>(
       context: context,
@@ -151,9 +139,6 @@ class _EditNoteScreenState extends State<EditNoteScreen> {
     );
   }
 
-  // =========================
-  // SAVE NOTE (UNCHANGED)
-  // =========================
   Future<void> _save() async {
     if (_titleController.text.trim().isEmpty &&
         _contentController.text.trim().isEmpty) {
@@ -182,12 +167,16 @@ class _EditNoteScreenState extends State<EditNoteScreen> {
     Navigator.pop(context);
   }
 
-  // =========================
-  // SUMMARY
-  // =========================
+  // AI SUMMARY
   Future<void> _summarizeNote() async {
     final text = _contentController.text;
-    if (text.trim().isEmpty) return;
+
+    if (text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Nothing to summarize")),
+      );
+      return;
+    }
 
     setState(() => _isSummarizing = true);
 
@@ -208,6 +197,14 @@ class _EditNoteScreenState extends State<EditNoteScreen> {
             ),
           ],
         ),
+      );
+    } catch (e) {
+      debugPrint("AI ERROR: $e");
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("AI failed: $e")),
       );
     } finally {
       if (mounted) {
@@ -251,21 +248,16 @@ class _EditNoteScreenState extends State<EditNoteScreen> {
     super.dispose();
   }
 
-  // =========================
-  // UI
-  // =========================
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: _selectedColor.withValues(alpha: 0.25),
-
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
         title: const Text("Note"),
         actions: [
           IconButton(icon: const Icon(Icons.palette), onPressed: _pickColor),
-
           IconButton(
             icon: Icon(
               _isListening ? Icons.mic : Icons.mic_none,
@@ -275,15 +267,12 @@ class _EditNoteScreenState extends State<EditNoteScreen> {
                 ? _initSpeech
                 : (_isListening ? _stopListening : _startListening),
           ),
-
           IconButton(
             icon: _isSummarizing
                 ? const CircularProgressIndicator()
                 : const Icon(Icons.auto_awesome),
             onPressed: _isSummarizing ? null : _summarizeNote,
           ),
-
-          // SAVE BUTTON (safe, no change to logic)
           IconButton(
             icon: _isSaving
                 ? const CircularProgressIndicator()
@@ -292,7 +281,6 @@ class _EditNoteScreenState extends State<EditNoteScreen> {
           ),
         ],
       ),
-
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Container(
@@ -312,9 +300,7 @@ class _EditNoteScreenState extends State<EditNoteScreen> {
                     fontSize: 20, fontWeight: FontWeight.bold),
                 decoration: _input("Title"),
               ),
-
               const SizedBox(height: 12),
-
               DropdownButtonFormField<String>(
                 initialValue: _selectedCategory,
                 decoration: _input("Category"),
@@ -334,9 +320,7 @@ class _EditNoteScreenState extends State<EditNoteScreen> {
                   setState(() => _selectedCategory = value!);
                 },
               ),
-
               const SizedBox(height: 12),
-
               Row(
                 children: [
                   Expanded(
@@ -351,7 +335,6 @@ class _EditNoteScreenState extends State<EditNoteScreen> {
                   ),
                 ],
               ),
-
               Wrap(
                 spacing: 6,
                 children: _tagList.map((tag) {
@@ -362,10 +345,7 @@ class _EditNoteScreenState extends State<EditNoteScreen> {
                   );
                 }).toList(),
               ),
-
               const SizedBox(height: 12),
-
-              //  TEXT START POSITION
               Expanded(
                 child: TextField(
                   controller: _contentController,
