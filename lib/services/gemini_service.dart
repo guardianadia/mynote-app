@@ -3,7 +3,7 @@ import 'package:http/http.dart' as http;
 
 class GeminiService {
   static const apiKey =
-      "AIzaSyD8EwjMtIyl61x_ge17aeQg9ZJoKt7Rlbs"; // replace with your API key
+      "REAL_GEMINI_KEY"; // replace with your API key
 
   Future<String> summarize(String text) async {
     final response = await http.post(
